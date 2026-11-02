@@ -11,6 +11,7 @@ const TABLES = {
   Status: ['date', 'person_id', 'status', 'note', 'marked_at'],
   Hangouts: ['id', 'date', 'title', 'start', 'end', 'location', 'by', 'going', 'deleted'],
   Payments: ['month', 'person_id', 'state', 'amount', 'at', 'by'],
+  Proofs: ['month', 'person_id', 'file_id', 'state', 'at', 'by'],
   Config: ['key', 'value'],
   Log: ['at', 'actor', 'action', 'detail'],
 };
@@ -29,9 +30,11 @@ const DEFAULTS = {
   TOPIC_HANGOUTS: '',
   APP_LINK: '',
   GENERATED_THROUGH: '',
+  PROOF_FOLDER: '',
 };
 const MONTHS_AHEAD = 6;
 const MINI_APP_LINK = 'https://t.me/pocaheels_bot?startapp';
+const PROOF_DAYS = 90; // Payment screenshots are deleted after this many days.
 const KINDS = { paid: 'Training', free: 'Extra training', performance: 'Performance', hangout: 'Crew hangout' };
 function isPaid(c) { return !c.kind || c.kind === 'paid'; }
 function isTraining(c) { return isPaid(c) || c.kind === 'free'; }
@@ -53,6 +56,7 @@ function setup() {
     if (!config.some((r) => r.key === k)) config.push({ key: k, value: DEFAULTS[k] });
   });
   writeTable('Config', config);
+  proofFolder();
   ensureMondays();
   ScriptApp.getProjectTriggers().forEach((t) => {
     if (t.getHandlerFunction() === 'tick') ScriptApp.deleteTrigger(t);
@@ -236,6 +240,8 @@ function buildLedger(data, cfg) {
   data.status.forEach((s) => { statusBy[s.person_id + '|' + s.date] = s; });
   const payBy = {};
   data.payments.forEach((p) => { payBy[p.person_id + '|' + p.month] = p; });
+  const proofBy = {};
+  (data.proofs || []).forEach((p) => { proofBy[p.person_id + '|' + p.month] = p; });
   function charge(person, c) {
     if (c.date < person.joined || (person.left && c.date >= person.left)) return 0;
     const month = c.date.slice(0, 7);
@@ -288,6 +294,7 @@ function buildLedger(data, cfg) {
       id: person.id, name: person.name, lines, toPay,
       state: pay ? pay.state : (toPay === 0 ? 'nothing' : 'none'),
       paid, after: before + paid - thisMonth,
+      proof: proofBy[person.id + '|' + month] ? proofBy[person.id + '|' + month].state : '',
     };
   }
   /** One entry per month, newest first: what they owed, why, and what they paid. */
@@ -310,6 +317,7 @@ function loadData() {
     classes: readTable('Classes').sort((a, b) => (a.date < b.date ? -1 : 1)),
     status: readTable('Status'),
     payments: readTable('Payments'),
+    proofs: readTable('Proofs'),
   };
 }
 function billable(people) { return people.filter((p) => (p.role === 'member' || p.role === 'admin') && p.pays === 'yes'); }
@@ -422,12 +430,14 @@ function handle(tgUser, action, p) {
     if (me.role === 'removed') return { removed: true };
     const fn = me.role === 'admin' ? Object.assign({}, MEMBER_ACTIONS, ADMIN_ACTIONS)[action] : MEMBER_ACTIONS[action];
     if (action !== 'state' && !fn) throw new Error('You do not have access to this');
+    if (action === 'proofImage') return fn(me, p);
+    let extra = null;
     if (fn) {
-      fn(me, p);
-      if (action !== 'state') logAction(id, action, p);
+      extra = fn(me, p);
+      if (action !== 'state') logAction(id, action, action === 'claim' ? { month: p.month } : p);
     }
     me = readTable('People').find((x) => x.id === id);
-    const out = stateFor(me, p.month);
+    const out = Object.assign(stateFor(me, p.month), extra || {});
     if (action === 'findGroups') out.groups = fetchGroups();
     return out;
   } finally {
@@ -451,10 +461,58 @@ function savePayment(month, personId, state, amount, by) {
   const rows = readTable('Payments').filter((r) => !(r.month === month && r.person_id === personId));
   if (state) rows.push({ month, person_id: personId, state, amount, at: nowStamp(), by });
   writeTable('Payments', rows);
+  if (state === 'paid') {
+    const proof = proofOf(month, personId);
+    if (proof && proof.state === 'pending') saveProof(month, personId, proof.file_id, 'accepted', by);
+  }
 }
 function currentToPay(person, month) {
   return buildLedger(loadData(), config()).summary(person, month).toPay;
 }
+// ---------- payment screenshots ----------
+// Files stay private in the owner's Drive. The app fetches them through proofImage, for admins only.
+function proofFolder() {
+  const id = config().PROOF_FOLDER;
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (err) { logAction('system', 'proof_folder_missing', { error: err.message }); }
+  }
+  const folder = DriveApp.createFolder('Poca Heels payment screenshots');
+  setConfig('PROOF_FOLDER', folder.getId());
+  return folder;
+}
+function proofOf(month, personId) {
+  return readTable('Proofs').find((r) => r.month === month && r.person_id === personId);
+}
+function trashProofFile(fileId) {
+  if (!fileId) return;
+  try {
+    DriveApp.getFileById(fileId).setTrashed(true);
+  } catch (err) {
+    logAction('system', 'proof_delete_failed', { error: err.message });
+  }
+}
+/** Replaces this person's screenshot record for the month. A null state removes it. */
+function saveProof(month, personId, fileId, state, by) {
+  const rows = readTable('Proofs').filter((r) => !(r.month === month && r.person_id === personId));
+  if (state) rows.push({ month, person_id: personId, file_id: fileId, state, at: nowStamp(), by });
+  writeTable('Proofs', rows);
+}
+function dropProof(month, personId) {
+  const row = proofOf(month, personId);
+  if (!row) return;
+  trashProofFile(row.file_id);
+  saveProof(month, personId, null, null);
+}
+function purgeOldProofs() {
+  const cutoff = new Date(Date.now() - PROOF_DAYS * 86400000);
+  const limit = Utilities.formatDate(cutoff, TZ, 'yyyy-MM-dd');
+  const rows = readTable('Proofs');
+  const old = rows.filter((r) => r.at.slice(0, 10) < limit);
+  if (!old.length) return;
+  old.forEach((r) => trashProofFile(r.file_id));
+  writeTable('Proofs', rows.filter((r) => old.indexOf(r) < 0));
+}
+
 const MEMBER_ACTIONS = {
   state() {},
   setStatus(me, p) {
@@ -465,7 +523,16 @@ const MEMBER_ACTIONS = {
     upsertStatus(me.id, p.date, p.status, p.note);
   },
   claim(me, p) {
-    if (readTable('Payments').some((r) => r.month === p.month && r.person_id === me.id)) return;
+    if (!/^\d{4}-\d{2}$/.test(p.month)) throw new Error('Invalid month');
+    const row = readTable('Payments').find((r) => r.month === p.month && r.person_id === me.id);
+    if (row && row.state === 'paid') throw new Error('This payment is already confirmed');
+    const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(p.image || ''));
+    if (!m) throw new Error('Please upload a screenshot');
+    if (m[1].length > 8000000) throw new Error('That image is too large. Please try a smaller one.');
+    const blob = Utilities.newBlob(Utilities.base64Decode(m[1]), 'image/jpeg', p.month + ' ' + me.name + '.jpg');
+    dropProof(p.month, me.id);
+    const file = proofFolder().createFile(blob);
+    saveProof(p.month, me.id, file.getId(), 'pending', me.id);
     savePayment(p.month, me.id, 'claimed', currentToPay(me, p.month), me.id);
   },
   saveHangout(me, p) {
@@ -510,7 +577,10 @@ const MEMBER_ACTIONS = {
   },
   unclaim(me, p) {
     const row = readTable('Payments').find((r) => r.month === p.month && r.person_id === me.id);
-    if (row && row.state === 'claimed') savePayment(p.month, me.id, null);
+    if (row && row.state === 'claimed') {
+      savePayment(p.month, me.id, null);
+      dropProof(p.month, me.id);
+    }
   },
 };
 function hangoutRows() { return readTable('Hangouts'); }
@@ -574,7 +644,38 @@ const ADMIN_ACTIONS = {
     if (isNaN(amount) || amount < 0) throw new Error('Please enter a valid amount');
     savePayment(p.month, id, 'paid', amount, me.id);
   },
-  resetPay(me, p) { (p.ids || [p.id]).forEach((id) => savePayment(p.month, String(id), null)); },
+  resetPay(me, p) {
+    (p.ids || [p.id]).forEach((id) => {
+      savePayment(p.month, String(id), null);
+      dropProof(p.month, String(id));
+    });
+  },
+  proofImage(me, p) {
+    const row = proofOf(p.month, String(p.id));
+    if (!row || !row.file_id) throw new Error('This screenshot is no longer available');
+    const bytes = DriveApp.getFileById(row.file_id).getBlob().getBytes();
+    return { image: 'data:image/jpeg;base64,' + Utilities.base64Encode(bytes) };
+  },
+  rejectProof(me, p) {
+    const id = String(p.id);
+    const row = readTable('Payments').find((r) => r.month === p.month && r.person_id === id);
+    if (!row || row.state !== 'claimed') throw new Error('This payment is no longer waiting to be checked');
+    const proof = proofOf(p.month, id);
+    if (proof) trashProofFile(proof.file_id);
+    savePayment(p.month, id, null);
+    saveProof(p.month, id, '', 'rejected', me.id);
+    try {
+      // Only reaches people who have allowed the bot to message them. They still see it in the app.
+      telegram('sendMessage', {
+        chat_id: id, parse_mode: 'HTML', disable_web_page_preview: true,
+        text: 'your ' + monthName(p.month) + ' payment screenshot was rejected 🥲\nplease upload the correct one in the <a href="' + MINI_APP_LINK + '">miniapp</a> 🙏🏻',
+      });
+      return { notified: true };
+    } catch (err) {
+      logAction('system', 'private_message_failed', { id, error: err.message });
+      return { notified: false };
+    }
+  },
   markAll(me, p) {
     const existing = readTable('Payments').filter((r) => r.month === p.month);
     billable(readTable('People')).forEach((person) => {
@@ -725,6 +826,11 @@ function fetchGroups() {
 // ---------- automatic messages, run twice a day ----------
 function tick() {
   resetCaches();
+  try {
+    purgeOldProofs();
+  } catch (err) {
+    logAction('system', 'proof_purge_failed', { error: err.message });
+  }
   const cfg = config();
   if (!cfg.GROUP_CHAT_ID) return;
   const props = PropertiesService.getScriptProperties();

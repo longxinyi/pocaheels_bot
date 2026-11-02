@@ -175,6 +175,14 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
 .sheethead h2{font-size:30px}
 .total{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0 4px;border-top:1.5px solid var(--text);font-weight:700}
 .total span:last-child{font-family:var(--display);font-size:30px;font-weight:600;line-height:1}
+.year{font-family:var(--display);font-style:normal;font-size:18px;font-weight:500;color:var(--hint);margin:10px 4px -10px}
+.filebtn{display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;text-align:center}
+.filebtn input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.filebtn:focus-within{outline:2px solid var(--link);outline-offset:2px}
+.proofimg{display:block;width:100%;border-radius:14px}
+.card .proofimg{max-height:45vh;object-fit:contain}
+.stick{position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom));margin-bottom:-8px;padding:8px 0;background:var(--bg)}
+.note.bad{color:var(--danger)}
 .btnrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .btnrow button{padding:4px 8px;font-size:15px;line-height:1.2}
 .inline{display:flex;gap:8px}
@@ -211,7 +219,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var S = null;
-  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, topics: {}, edit: false, editing: false, adding: false, hg: null, confirmDel: null, openMonths: {}, draft: null, groups: null, approve: {}, paynow: null, fold: {}, hist: null, histOpen: {}, confirmGroup: false };
+  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, topics: {}, edit: false, editing: false, adding: false, hg: null, confirmDel: null, openMonths: {}, draft: null, groups: null, approve: {}, paynow: null, fold: {}, hist: null, histOpen: {}, confirmGroup: false, upload: null, proofView: null, proofs: {}, confirmReject: false };
   var toastTimer = null;
 
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -257,8 +265,38 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     var i = busy.indexOf(k);
     if (i >= 0) busy.splice(i, 1);
   }
+  // Telegram only lets the bot message someone privately once they allow it.
+  function askToMessage(next) {
+    var u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user, k = tapped;
+    function go() { tapped = k; next(); tapped = null; }
+    if (!tg || !tg.requestWriteAccess || !tg.isVersionAtLeast || !tg.isVersionAtLeast('6.9') || !u || u.allows_write_to_pm) { next(); return; }
+    try { tg.requestWriteAccess(go); } catch (e) { go(); }
+  }
+  // Shrinks the picture so it uploads quickly but stays readable.
+  function readProof(file) {
+    if (!file) return;
+    if (file.type && !/^image\//.test(file.type)) { toast('Please choose an image.'); render(); return; }
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () {
+      var scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      var x = c.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+      x.drawImage(img, 0, 0, c.width, c.height);
+      ui.upload = c.toDataURL('image/jpeg', 0.75);
+      URL.revokeObjectURL(url);
+      render();
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      toast('That image could not be opened. Please try a different one.');
+      render();
+    };
+    img.src = url;
+  }
   // Says what is actually happening. Anything not listed is saving something.
-  var BUSY_WORD = { reload: 'Loading...', findGroups: 'Looking...', remind: 'Sending...', removePerson: 'Removing...', clearGroup: 'Removing...', clearTopic: 'Removing...' };
+  var BUSY_WORD = { reload: 'Loading...', findGroups: 'Looking...', remind: 'Sending...', removePerson: 'Removing...', clearGroup: 'Removing...', clearTopic: 'Removing...', sendProof: 'Sending...', rejectProof: 'Rejecting...', unclaim: 'Removing...' };
   var READS = { state: true, findGroups: true };
   function showBusy() {
     busy.forEach(function (k) {
@@ -524,8 +562,8 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       '<div class="sum"><b>$' + received + ' <span>of $' + expected + '</span></b></div><div class="progress"><div style="width:' + pct + '%"></div></div><div class="hint">Due ' + lab(S.due).slice(4) + '</div></section>';
     if (!rows.length) h += '<section class="card"><div class="hint">Nobody has joined yet. Approve people on the People tab first.</div></section>';
     if (claimed.length) h += foldCard('payClaimed', 'Said they\'ve paid', peopleCount(claimed.length), true, function () {
-      return '<div class="hint">Check these in your bank app, then confirm.</div>' + claimed.map(function (r) {
-        return '<div class="row"><button class="rowbtn" data-act="open" data-arg="' + esc(r.id) + '"><span>' + esc(r.name) + '</span><strong>$' + r.paid + '</strong></button><button class="small" data-act="confirm" data-arg="' + esc(r.id) + '">Confirm</button></div>';
+      return '<div class="hint">Check the screenshot and your bank app, then confirm or reject.</div>' + claimed.map(function (r) {
+        return '<div class="row"><button class="rowbtn" data-act="open" data-arg="' + esc(r.id) + '"><span>' + esc(r.name) + '</span><strong>$' + r.paid + '</strong></button>' + (r.proof === 'pending' ? '<button class="small" data-act="viewProof" data-arg="' + esc(r.id) + '">View</button>' : '<button class="small" data-act="confirm" data-arg="' + esc(r.id) + '">Confirm</button>') + '</div>';
       }).join('');
     });
     if (unpaid.length) h += foldCard('payUnpaid', 'Not paid yet', peopleCount(unpaid.length), true, function () {
@@ -568,7 +606,18 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     }).join('');
     return '<div class="overlay"><div class="sheet" role="dialog" aria-label="' + esc(p.name) + ' history"><div class="sheethead"><h2>' + esc(p.name) + '</h2><button class="icon" aria-label="Close" data-act="closeSheet">&times;</button></div>' + body + (p.pays && rows.length ? '<div class="hint">History starts from ' + monthOf(S.startMonth) + ' ' + S.startMonth.slice(0, 4) + '.</div>' : '') + '</div></div>';
   }
+  function proofSheet() {
+    var r = S.admin.payments.filter(function (x) { return x.id === ui.proofView; })[0];
+    if (!r) return '';
+    var img = ui.proofs[S.month + '|' + r.id];
+    var h = '<div class="overlay"><div class="sheet" role="dialog" aria-label="' + esc(r.name) + ' screenshot"><div class="sheethead"><h2>' + esc(r.name) + '</h2><button class="icon" aria-label="Close" data-act="closeSheet">&times;</button></div>';
+    h += '<div class="total"><span>' + (r.state === 'paid' ? 'Paid' : 'To pay') + '</span><span>$' + r.paid + '</span></div>';
+    h += img ? '<img class="proofimg" alt="Payment screenshot from ' + esc(r.name) + '" src="' + img + '">' : '<div class="hint" style="text-align:center;padding:40px 0"><span class="spin" aria-hidden="true"></span>Loading screenshot...</div>';
+    if (r.state === 'claimed') h += '<div class="btnrow stick"><button class="primary" data-act="confirm" data-arg="' + esc(r.id) + '">Confirm</button><button class="danger" data-act="rejectProof" data-arg="' + esc(r.id) + '">' + (ui.confirmReject ? 'Tap again to reject' : 'Reject') + '</button></div>';
+    return h + '</div></div>';
+  }
   function sheetView() {
+    if (ui.proofView && S.admin) return proofSheet();
     if (ui.hist && S.admin) return historyView();
     if (!ui.sheet || !S.admin) return '';
     var r = S.admin.payments.filter(function (x) { return x.id === ui.sheet; })[0];
@@ -578,6 +627,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       '<div class="total"><span>To pay</span><span>$' + amt + '</span></div>' + (r.state === 'paid' && r.after ? '<div class="note">' + esc(carryText(r.after, S.month)) + '</div>' : '') +
       '<button class="primary" data-act="markExact">Paid $' + amt + '</button><label for="diffamt" style="font-weight:700;padding-top:6px;font-size:15px">Paid a different amount</label>' +
       '<div class="inline"><input id="diffamt" type="number" inputmode="numeric" placeholder="Amount" value="' + esc(ui.diff) + '" data-input="diff"><button class="outline" data-act="saveDiff">Save</button></div><div class="hint" id="diffnote">' + diffNote() + '</div>' +
+      (r.proof === 'pending' || r.proof === 'accepted' ? '<button class="plain" data-act="viewProof" data-arg="' + esc(r.id) + '">View screenshot</button>' : '') +
       (r.state === 'paid' || r.state === 'claimed' ? '<button class="danger" data-act="resetPay">Change back to not paid</button>' : '') + '</div></div>';
   }
   function diffNote() {
@@ -658,12 +708,15 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       groups[m].push(c);
     });
     if (!order.length) return '<section class="card"><div class="hint">No upcoming classes yet.</div></section>';
+    var lastYear = '';
     return (usual ? '<div class="usual">Usually ' + esc(usual) + '</div>' : '') + order.map(function (m, i) {
+      var year = m.slice(0, 4), yearHead = year !== lastYear ? '<h2 class="year">' + year + '</h2>' : '';
+      lastYear = year;
       var open = ui.openMonths[m] === undefined ? i === 0 : ui.openMonths[m];
       var n = groups[m].length;
       var head = '<button class="month" aria-expanded="' + open + '" data-act="toggleMonth" data-arg="' + m + '|' + open + '">' + monthOf(m) + (m < S.startMonth ? ' <small>already paid</small>' : '') + '<span class="count">' + n + (n === 1 ? ' item' : ' items') + '</span>' + CHEVRON + '</button>';
-      if (!open) return head;
-      return head + '<section class="card list">' + groups[m].map(function (c) {
+      if (!open) return yearHead + head;
+      return yearHead + head + '<section class="card list">' + groups[m].map(function (c) {
         var hint = '', w = whenWhere(c);
         var isPaidItem = !c.kind || c.kind === 'paid';
         if (c.status === 'absent' && isPaidItem) hint = c.paid ? '$' + S.training + ' comes off your next payment.' : 'You only pay the $' + S.rent + ' rent for this class.';
@@ -680,15 +733,19 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
   function myPaymentView(extra) {
     var r = S.myPayment;
     var amt = r.state === 'claimed' || r.state === 'paid' ? r.paid : r.toPay;
-    var status = r.state === 'paid' ? 'Paid and confirmed' : r.state === 'claimed' ? 'Waiting for your teacher to confirm' : r.state === 'nothing' ? 'Nothing to pay this month' : 'Not paid yet';
+    var status = r.state === 'paid' ? 'Paid and confirmed' : r.state === 'claimed' ? 'Waiting for your teacher to confirm' : r.state === 'nothing' ? 'Nothing to pay this month' : r.proof === 'rejected' ? 'Screenshot rejected' : 'Not paid yet';
     var h = '<section class="stage"><h1>' + monthOf(S.month) + ' payment</h1><div class="hint">Due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong></section>' + (extra || '');
     if (r.lines.length || (r.state !== 'none' && r.after)) {
       h += '<section class="card">' + linesHtml(r.lines).replace('class="line"', 'class="line" style="border-top:0;padding-top:0"');
       if (r.state !== 'none' && r.after) h += '<div class="note">' + esc(carryText(r.after, S.month)) + '</div>';
       h += '</section>';
     }
-    if (r.state === 'none') h += '<section class="card"><div>' + (S.paynow ? 'PayNow to <strong>' + esc(S.paynow) + '</strong>. ' : '') + 'Click if transferred.</div><button class="primary" data-act="claim">I\'ve paid</button></section>';
-    if (r.state === 'claimed') h += '<button class="plain" data-act="unclaim">I tapped this by mistake</button>';
+    if (r.state === 'none' && ui.upload) {
+      h += '<section class="card"><strong>Is this the right screenshot?</strong><img class="proofimg" alt="Your payment screenshot" src="' + ui.upload + '"><div class="btnrow"><button class="primary" data-act="sendProof">Send to teacher</button><label class="plain filebtn">Choose another<input type="file" accept="image/*" data-change="proofFile"></label></div></section>';
+    } else if (r.state === 'none') {
+      h += '<section class="card">' + (r.proof === 'rejected' ? '<div class="note bad">Your last screenshot was rejected. Please upload the correct one.</div>' : '') + '<div>' + (S.paynow ? 'PayNow to <strong>' + esc(S.paynow) + '</strong>. ' : '') + 'Screenshot after payment and upload here.</div><label class="primary filebtn">Upload screenshot<input type="file" accept="image/*" data-change="proofFile"></label></section>';
+    }
+    if (r.state === 'claimed') h += '<button class="plain" data-act="unclaim">Send a different screenshot</button>';
     return h;
   }
 
@@ -800,12 +857,46 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     },
     toggleEdit: function () { ui.edit = true; ui.draft = null; render(); },
     open: function (a) { ui.sheet = a; ui.diff = ''; ui.toast = null; render(); },
-    closeSheet: function () { ui.sheet = null; ui.hist = null; render(); },
+    closeSheet: function () { ui.sheet = null; ui.hist = null; ui.proofView = null; ui.confirmReject = false; render(); },
+    viewProof: function (a) {
+      var key = S.month + '|' + a, month = S.month;
+      ui.sheet = null; ui.proofView = a; ui.confirmReject = false;
+      render();
+      if (ui.proofs[key]) return;
+      post('proofImage', { id: a, month: month }).then(function (res) {
+        inflight--;
+        if (res.error) { ui.proofView = null; toast(res.error); render(); return; }
+        ui.proofs[key] = res.image;
+        render();
+      }).catch(function () {
+        inflight--;
+        ui.proofView = null;
+        toast('Could not load the screenshot. Please try again.');
+        render();
+      });
+    },
+    rejectProof: function (a) {
+      if (!ui.confirmReject) { ui.confirmReject = true; render(); return; }
+      var p = S.admin.payments.filter(function (x) { return x.id === a; })[0], name = p ? p.name : 'They';
+      ui.confirmReject = false;
+      delete ui.proofs[S.month + '|' + a];
+      call('rejectProof', { id: a }, function (res) {
+        ui.proofView = null;
+        toast(res.notified ? name + ' was asked to send the correct screenshot.' : 'Rejected. ' + name + ' can\'t get private messages yet, but will see this in the app.');
+      });
+    },
+    sendProof: function () {
+      var image = ui.upload;
+      if (!image) return;
+      askToMessage(function () {
+        call('claim', { image: image }, function () { ui.upload = null; toast('Sent to your teacher to confirm.'); });
+      });
+    },
     history: function (a) { ui.hist = a; ui.histOpen = {}; ui.toast = null; render(); },
     toggleHist: function (a) { var p = a.split('|'); ui.histOpen[p[0]] = p[1] !== 'true'; render(); },
     toggleFold: function (a) { var p = a.split('|'); ui.fold[p[0]] = p[1] !== 'true'; ui.confirmGroup = false; render(); },
     confirm: function (a) {
-      call('confirm', { id: a }, function () { toast('Confirmed.'); });
+      call('confirm', { id: a }, function () { ui.proofView = null; ui.confirmReject = false; toast('Confirmed.'); });
     },
     remind: function () {
       var ids = S.admin.payments.filter(function (r) { return r.state === 'none' && !ui.unsel[r.id]; }).map(function (r) { return r.id; });
@@ -856,7 +947,6 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       var cur = S.myClasses.filter(function (c) { return c.date === p[0]; })[0];
       quick('setStatus', { date: p[0], status: p[1], note: cur ? cur.note : '' }, function () { if (cur) cur.status = p[1]; });
     },
-    claim: function () { call('claim', {}, function () { toast('Sent to your teacher to confirm.'); }); },
     unclaim: function () { call('unclaim'); },
     undo: function () { var u = ui.undo; ui.toast = null; ui.undo = null; if (u) call(u.action, u.payload); }
   };
@@ -883,6 +973,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     if (dc && ui.draft) { ui.draft[dc] = e.target.checked; refreshSave(); }
     if (k === 'unsel') { ui.unsel[e.target.getAttribute('data-arg')] = !e.target.checked; render(); }
     if (k === 'statusFor' && ui.draft) { ui.draft.statuses[e.target.getAttribute('data-arg')] = e.target.value; refreshSave(); }
+    if (k === 'proofFile') readProof(e.target.files[0]);
     if (k === 'approveKind') ui.approve[e.target.getAttribute('data-arg')].kind = e.target.value;
     var note = e.target.getAttribute('data-note');
     if (note) quick('setStatus', { date: note, status: 'late', note: e.target.value });
@@ -899,7 +990,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     if (k === 'paynow') ui.paynow = e.target.value;
     if (k === 'approveName') ui.approve[e.target.getAttribute('data-arg')].name = e.target.value;
   });
-  document.addEventListener('visibilitychange', function () { if (!document.hidden && S && !ui.saving && !ui.sheet && !ui.draft && !ui.hg) call('state'); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && S && !ui.saving && !ui.sheet && !ui.draft && !ui.hg && !ui.proofView) call('state'); });
 
   start();
 })();
