@@ -37,6 +37,7 @@ function itemName(c) { return c.title || KINDS[c.kind || 'paid']; }
 // ---------- setup, run once by hand ----------
 function setup() {
   resetCaches();
+  clearFastCache();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   PropertiesService.getScriptProperties().setProperty('SHEET_ID', ss.getId());
   Object.keys(TABLES).forEach((name) => {
@@ -62,15 +63,42 @@ function setup() {
 let BOOK = null;
 let TABLE_CACHE = {};
 function resetCaches() { BOOK = null; TABLE_CACHE = {}; }
+// Sheet reads take seconds, so tabs are also kept in Google's fast cache between requests.
+// onEdit clears it when someone changes the Sheet by hand, and it expires after 6 hours anyway.
+const CACHE_SECONDS = 21600;
+function cacheKey(name) { return 'table_' + name; }
+function fastGet(name) {
+  try {
+    const raw = CacheService.getScriptCache().get(cacheKey(name));
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+function fastPut(name, rows) {
+  try {
+    CacheService.getScriptCache().put(cacheKey(name), JSON.stringify(rows), CACHE_SECONDS);
+  } catch (err) {
+    CacheService.getScriptCache().remove(cacheKey(name)); // Too big to cache: read from the Sheet instead.
+  }
+}
+function clearFastCache() { CacheService.getScriptCache().removeAll(Object.keys(TABLES).map(cacheKey)); }
+function onEdit() { clearFastCache(); }
 function readTable(name) {
   if (!TABLE_CACHE[name]) {
-    const values = bookOrActive().getSheetByName(name).getDataRange().getDisplayValues();
-    const head = TABLES[name];
-    TABLE_CACHE[name] = values.slice(1).filter((r) => r.join('') !== '').map((r) => {
-      const o = {};
-      head.forEach((h, i) => { o[h] = r[i] === undefined ? '' : String(r[i]); });
-      return o;
-    });
+    const cached = fastGet(name);
+    if (cached) {
+      TABLE_CACHE[name] = cached;
+    } else {
+      const values = bookOrActive().getSheetByName(name).getDataRange().getDisplayValues();
+      const head = TABLES[name];
+      TABLE_CACHE[name] = values.slice(1).filter((r) => r.join('') !== '').map((r) => {
+        const o = {};
+        head.forEach((h, i) => { o[h] = r[i] === undefined ? '' : String(r[i]); });
+        return o;
+      });
+      fastPut(name, TABLE_CACHE[name]);
+    }
   }
   return TABLE_CACHE[name].map((r) => Object.assign({}, r));
 }
@@ -90,7 +118,7 @@ function writeTable(name, rows) {
     sh.getRange(start + 1, 1, sh.getMaxRows() - start, head.length).setNumberFormat('@');
   }
   const last = sh.getLastRow();
-  if (last > 1) sh.getRange(2, 1, last - 1, head.length).clearContent();
+  if (last > rows.length + 1) sh.getRange(rows.length + 2, 1, last - rows.length - 1, head.length).clearContent();
   const cells = rows.map((r) => head.map((h) => (r[h] === undefined ? '' : String(r[h]))));
   if (rows.length) sh.getRange(2, 1, rows.length, head.length).setValues(cells);
   TABLE_CACHE[name] = cells.map((row) => {
@@ -98,6 +126,7 @@ function writeTable(name, rows) {
     head.forEach((h, i) => { o[h] = row[i]; });
     return o;
   });
+  fastPut(name, TABLE_CACHE[name]);
 }
 function logAction(actor, action, detail) {
   bookOrActive().getSheetByName('Log').appendRow([nowStamp(), actor, action, JSON.stringify(detail || {})]);
