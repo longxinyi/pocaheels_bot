@@ -370,7 +370,7 @@ function stateFor(me, month) {
       payments: people.map((p) => led.summary(p, pm)),
       people: data.people.filter((p) => p.role === 'member' || p.role === 'admin').map((p) => ({ id: p.id, name: p.name, role: p.role, pays: p.pays === 'yes' })),
       pending: data.people.filter((p) => p.role === 'pending').map((p) => ({ id: p.id, tgName: p.tg_name, username: p.username })),
-      group: { id: cfg.GROUP_CHAT_ID, title: cfg.GROUP_TITLE, topics: { payments: !!cfg.TOPIC_PAYMENTS, hangouts: !!cfg.TOPIC_HANGOUTS } },
+      group: { id: cfg.GROUP_CHAT_ID, title: cfg.GROUP_TITLE, topics: { payments: cfg.TOPIC_PAYMENTS ? (cfg.TOPIC_PAYMENTS_NAME || 'Saved topic') : '', hangouts: cfg.TOPIC_HANGOUTS ? (cfg.TOPIC_HANGOUTS_NAME || 'Saved topic') : '' } },
       sheetUrl: 'https://docs.google.com/spreadsheets/d/' + bookOrActive().getId() + '/export?format=xlsx',
     };
   }
@@ -612,12 +612,21 @@ const ADMIN_ACTIONS = {
   setTopic(me, p) {
     const key = p.which === 'hangouts' ? 'TOPIC_HANGOUTS' : 'TOPIC_PAYMENTS';
     const link = String(p.link || '').trim();
-    if (!link) { setConfig(key, ''); return; }
+    if (!link) { setConfig(key, ''); setConfig(key + '_NAME', ''); return; }
     const cfg = config();
     if (!cfg.GROUP_CHAT_ID) throw new Error('Connect your group chat first');
     const thread = threadFromLink(link, cfg.GROUP_CHAT_ID);
-    telegram('sendChatAction', { chat_id: cfg.GROUP_CHAT_ID, action: 'typing', message_thread_id: thread });
+    // Bots can't look up a topic's name, but a message sent to a topic comes back with it.
+    // So this sends one silent message to read the name, then deletes it straight away.
+    const probe = telegram('sendMessage', { chat_id: cfg.GROUP_CHAT_ID, message_thread_id: thread, text: 'setting up...', disable_notification: true });
+    const created = probe.reply_to_message && probe.reply_to_message.forum_topic_created;
+    try {
+      telegram('deleteMessage', { chat_id: cfg.GROUP_CHAT_ID, message_id: probe.message_id });
+    } catch (err) {
+      logAction('system', 'probe_delete_failed', { error: err.message });
+    }
     setConfig(key, String(thread));
+    setConfig(key + '_NAME', created ? created.name : '');
   },
   setGroup(me, p) {
     setConfig('GROUP_CHAT_ID', String(p.id));
@@ -680,7 +689,7 @@ function notifyGroup(html, topicKey) {
 }
 function sendReminder(people) {
   const tags = people.map((p) => '<a href="tg://user?id=' + encodeURIComponent(p.id) + '">' + esc(p.name) + '</a>').join(' ');
-  sendToGroup('gentle reminder for payment 🙏🏻 ' + tags + ' mark in the app once transferred!', 'TOPIC_PAYMENTS');
+  sendToGroup('gentle reminder for payment 🙏🏻 ' + tags + ' mark in the <a href="' + MINI_APP_LINK + '">miniapp</a> once transferred!', 'TOPIC_PAYMENTS');
 }
 function fetchGroups() {
   const updates = telegram('getUpdates', { limit: 100 });
@@ -710,7 +719,7 @@ function tick() {
     const month = paymentMonth(cfg);
     const due = dueDate(month);
     if (t === due) {
-      once('sent_due_' + month, () => sendToGroup('hi!! ' + monthName(month) + ' payment is due today. open the app to see your amount due 💰💰', 'TOPIC_PAYMENTS'));
+      once('sent_due_' + month, () => sendToGroup('hi!! ' + monthName(month) + ' payment is due today. open the <a href="' + MINI_APP_LINK + '">miniapp</a> to see your amount due 💰💰', 'TOPIC_PAYMENTS'));
     }
     const dayAfter = dateOf(due);
     dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);

@@ -516,7 +516,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       [['payments', 'Payment reminders go to'], ['hangouts', 'Hangout messages go to']].forEach(function (t) {
         var on = a.group.topics && a.group.topics[t[0]];
         var val = ui.topics[t[0]] || '';
-        h += '<label class="field">' + t[1] + ': ' + (on ? 'chosen topic' : 'General') + '<div class="inline"><input type="text" placeholder="Paste a link to the topic" value="' + esc(val) + '" data-topic="' + t[0] + '"><button class="outline" data-act="saveTopic" data-arg="' + t[0] + '">Save</button></div></label>';
+        h += '<label class="field"><span>' + t[1] + ': <strong>' + esc(on || 'General') + '</strong></span><div class="inline"><input type="text" placeholder="Paste a link to the topic" value="' + esc(val) + '" data-topic="' + t[0] + '"><button class="outline" data-act="saveTopic" data-arg="' + t[0] + '">Save</button></div></label>';
       });
       h += '<div class="hint">Everything else goes to General.</div>';
     }
