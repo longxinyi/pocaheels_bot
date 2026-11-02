@@ -29,6 +29,7 @@ const DEFAULTS = {
   GENERATED_THROUGH: '',
 };
 const MONTHS_AHEAD = 6;
+const MINI_APP_LINK = 'https://t.me/pocaheels_bot?startapp';
 const KINDS = { paid: 'Training', free: 'Extra training', performance: 'Performance', hangout: 'Crew hangout' };
 function isPaid(c) { return !c.kind || c.kind === 'paid'; }
 function isTraining(c) { return isPaid(c) || c.kind === 'free'; }
@@ -54,8 +55,8 @@ function setup() {
   ScriptApp.getProjectTriggers().forEach((t) => {
     if (t.getHandlerFunction() === 'tick') ScriptApp.deleteTrigger(t);
   });
-  // Twice a day: the payment reminder goes out in the morning and the headcount in the evening.
-  [10, 18].forEach((h) => ScriptApp.newTrigger('tick').timeBased().atHour(h).everyDays(1).inTimezone(TZ).create());
+  // Once a day: the payment messages go out in the morning.
+  ScriptApp.newTrigger('tick').timeBased().atHour(10).everyDays(1).inTimezone(TZ).create();
 }
 
 // ---------- storage ----------
@@ -467,21 +468,21 @@ const MEMBER_ACTIONS = {
       const before = h.title + hangoutWhen(h);
       h.title = title; h.date = p.date; h.start = p.start || ''; h.end = p.end || ''; h.location = location;
       writeTable('Hangouts', rows);
-      if (p.notify && before !== h.title + hangoutWhen(h)) notifyGroup(esc('Hangout updated: ' + title + ', ' + hangoutWhen(h) + '.'));
+      if (p.notify && before !== h.title + hangoutWhen(h)) notifyGroup(esc('‼️ Hangout updated: ' + title + ', ' + hangoutWhen(h) + '.'));
       return;
     }
     if (p.date < today() && me.role !== 'admin') throw new Error('Please pick a date that has not passed');
     const h = { id: Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36), date: p.date, title, start: p.start || '', end: p.end || '', location, by: me.id, going: me.id, deleted: '' };
     rows.push(h);
     writeTable('Hangouts', rows);
-    if (p.notify) notifyGroup(esc('New hangout from ' + (me.name || 'a teammate') + ': ' + title + ', ' + hangoutWhen(h) + '.'));
+    if (p.notify) notifyGroup(esc('😆 New hangout from ' + (me.name || 'a teammate') + ': ' + title + ', ' + hangoutWhen(h) + '.'));
   },
   deleteHangout(me, p) {
     const rows = hangoutRows();
     const h = editableHangout(rows, me, p.id);
     h.deleted = 'yes';
     writeTable('Hangouts', rows);
-    if (h.date >= today()) notifyGroup(esc('Hangout cancelled: ' + h.title + ', ' + hangoutWhen(h) + '.'));
+    if (h.date >= today()) notifyGroup(esc('😭 Hangout cancelled: ' + h.title + ', ' + hangoutWhen(h) + '.'));
   },
   toggleGoing(me, p) {
     const rows = hangoutRows();
@@ -545,9 +546,9 @@ const ADMIN_ACTIONS = {
       const old = readTable('Status').find((r) => r.person_id === String(u.id) && r.date === p.date);
       upsertStatus(String(u.id), p.date, u.status, old ? old.note : '');
     });
-    if (p.cancelled && p.notify) notifyGroup(esc(niceDate(p.date) + ': class is cancelled.'));
-    else if (p.notify && isNew) notifyGroup(esc('New ' + (isTraining(c) ? 'class' : 'event') + ' on ' + niceDate(p.date) + ': ' + itemName(c) + ', ' + whenWhere(c) + '.'));
-    else if (p.notify && before !== whenWhere(c)) notifyGroup(esc(niceDate(p.date) + ' ' + itemName(c) + ' is now ' + whenWhere(c) + '.'));
+    if (p.cancelled && p.notify) notifyGroup(esc('‼️ ' + niceDate(p.date) + ': class is cancelled.'));
+    else if (p.notify && isNew) notifyGroup(esc((isTraining(c) ? '🫪 New class' : '💃 New event') + ' on ' + niceDate(p.date) + ': ' + itemName(c) + ', ' + whenWhere(c) + '.'));
+    else if (p.notify && before !== whenWhere(c)) notifyGroup(esc('‼️ ' + niceDate(p.date) + ' ' + itemName(c) + ' is now ' + whenWhere(c) + '.'));
   },
   confirm(me, p) {
     const row = readTable('Payments').find((r) => r.month === p.month && r.person_id === String(p.id));
@@ -575,9 +576,8 @@ const ADMIN_ACTIONS = {
   remind(me, p) {
     const people = readTable('People').filter((x) => (p.ids || []).indexOf(x.id) >= 0);
     if (!people.length) throw new Error('Tick at least one person first');
-    sendReminder(p.month, people);
+    sendReminder(people);
   },
-  postHeadcount(me, p) { sendToGroup(headcountText(p.date)); },
   approve(me, p) {
     const rows = readTable('People');
     const row = rows.find((x) => x.id === String(p.id));
@@ -610,7 +610,7 @@ const ADMIN_ACTIONS = {
   setGroup(me, p) {
     setConfig('GROUP_CHAT_ID', String(p.id));
     setConfig('GROUP_TITLE', String(p.title || ''));
-    sendToGroup('Poca Heels Bot is connected. Payment reminders and headcounts will appear here.');
+    sendToGroup('hello~ this is poca heels crew bot! i will be everyone\'s secretary, in charge of payment and scheduling. open the <a href="' + MINI_APP_LINK + '">miniapp</a> to see what i can do (you might have to request for permission) happy dancing 🕺🏻🪩');
   },
 };
 
@@ -640,23 +640,9 @@ function notifyGroup(html) {
     logAction('system', 'group_message_failed', { error: err.message });
   }
 }
-function sendReminder(month, people, overdue) {
+function sendReminder(people) {
   const tags = people.map((p) => '<a href="tg://user?id=' + encodeURIComponent(p.id) + '">' + esc(p.name) + '</a>').join(' ');
-  sendToGroup('Reminder: ' + monthName(month) + ' payment ' + (overdue ? 'was' : 'is') + ' due on ' + niceDate(dueDate(month)).slice(4) + '.\nStill to pay: ' + tags + '\nOpen the app to see your amount.');
-}
-function headcountText(date) {
-  const cls = readTable('Classes').find((c) => c.date === date);
-  const people = billable(readTable('People')).filter((p) => date >= p.joined && !(p.left && date >= p.left));
-  const rows = readTable('Status').filter((s) => s.date === date);
-  const absent = people.filter((p) => rows.some((s) => s.person_id === p.id && s.status === 'absent'));
-  const late = people.filter((p) => rows.some((s) => s.person_id === p.id && s.status === 'late')).map((p) => {
-    const n = rows.find((s) => s.person_id === p.id).note;
-    return n ? p.name + ' (' + n + ')' : p.name;
-  });
-  let t = '<b>' + niceDate(date) + ': ' + (people.length - absent.length) + '/' + people.length + ' coming</b>';
-  if (cls && whenWhere(cls)) t += '\n' + esc(whenWhere(cls));
-  if (late.length) t += '\nLate: ' + esc(late.join(', '));
-  return t + '\nAbsent: ' + esc(absent.length ? absent.map((p) => p.name).join(', ') : 'nobody');
+  sendToGroup('gentle reminder for payment 🙏🏻 ' + tags + ' mark in the app once transferred!');
 }
 function fetchGroups() {
   const updates = telegram('getUpdates', { limit: 100 });
@@ -682,7 +668,7 @@ function tick() {
     const month = paymentMonth(cfg);
     const due = dueDate(month);
     if (t === due) {
-      once('sent_due_' + month, () => sendToGroup(monthName(month) + ' payment is due today.\nOpen the app to see your amount.'));
+      once('sent_due_' + month, () => sendToGroup('hi!! ' + monthName(month) + ' payment is due today. open the app to see your amount due 💰💰'));
     }
     const dayAfter = dateOf(due);
     dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
@@ -690,14 +676,7 @@ function tick() {
       const data = loadData();
       const led = buildLedger(data, cfg);
       const unpaid = billable(data.people).filter((p) => led.summary(p, month).state === 'none');
-      if (unpaid.length) once('sent_overdue_' + month, () => sendReminder(month, unpaid, true));
+      if (unpaid.length) once('sent_overdue_' + month, () => sendReminder(unpaid));
     }
-  }
-  if (hour >= 18) {
-    const d = dateOf(t);
-    d.setUTCDate(d.getUTCDate() + 1);
-    const tomorrow = isoOf(d);
-    const c = readTable('Classes').find((x) => x.date === tomorrow && !x.cancelled && isTraining(x));
-    if (c) once('sent_count_' + tomorrow, () => sendToGroup(headcountText(tomorrow)));
   }
 }
