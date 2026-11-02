@@ -9,14 +9,9 @@
 :root{--bg:#fff;--sec:#efeff3;--text:#111;--hint:#5f6368;--btn:#1f6fb2;--btn-text:#fff;--link:#1f6fb2;--line:rgba(127,127,127,.25);--danger:#c62828;--special:#b35900;--special-bg:rgba(179,89,0,.14);--ok:#1e6b2b;--info-bg:rgba(31,111,178,.12)}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--sec);color:var(--text);font:16px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
-button,input{font:inherit;color:inherit}
+button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 #app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-.bar{background:#212121;color:#fff;padding:8px 12px 10px}
-.bar small{display:block;color:#d0d0d0;font-size:12px;margin-bottom:6px}
-.seg3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-.bar button{min-height:40px;border:0;border-radius:8px;background:#3a3a3a;color:#fff;font-size:14px;font-weight:600}
-.bar button.on{background:#fff;color:#111}
 main{flex:1;padding:12px;display:flex;flex-direction:column;gap:12px;padding-bottom:24px}
 h1{margin:4px 4px 0;font-size:22px}
 h2{margin:0;font-size:16px}
@@ -62,27 +57,31 @@ input[type=checkbox]{width:22px;height:22px;flex-shrink:0;accent-color:var(--btn
 .small{min-height:40px;padding:0 14px;border:0;border-radius:8px;background:var(--btn);color:var(--btn-text);font-weight:600}
 .text-danger{min-height:40px;padding:0 12px;border:0;background:transparent;color:var(--danger);font-weight:600}
 .okline{font-size:14px;text-align:right;color:var(--ok);font-weight:600}
-input[type=text],input[type=number]{width:100%;min-height:48px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text)}
+input[type=text],input[type=number],select{font-weight:400;width:100%;min-height:48px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text)}
+.row select{width:auto;min-height:40px;margin-left:auto}
 .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:3px;border-radius:10px;background:var(--sec)}
 .seg button{min-height:44px;border:0;border-radius:8px;background:transparent;font-size:15px;font-weight:600}
 .seg .coming.on{background:var(--btn);color:var(--btn-text)}
 .seg .late.on{background:#8a4500;color:#fff}
 .seg .absent.on{background:var(--danger);color:#fff}
-.month{margin:6px 4px -4px;font-size:15px;font-weight:700;color:var(--hint)}
+.month{margin:18px 4px 0;padding-bottom:6px;font-size:22px;font-weight:700;color:var(--text);border-bottom:2px solid var(--text)}
+.month small{font-size:14px;font-weight:500;color:var(--hint)}
+.month:first-of-type{margin-top:8px}
+.when{font-size:14px;color:var(--hint)}
+.field{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
+.times{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+input[type=time]{width:100%;min-height:48px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font-weight:400}
 .amount{font-size:38px;font-weight:700;line-height:1}
 .line{display:flex;justify-content:space-between;gap:12px;padding-top:8px;border-top:1px solid var(--line);font-size:15px}
 .line b{white-space:nowrap}
 .note{padding:10px 12px;border-radius:10px;background:var(--info-bg);font-size:15px}
-.msg{background:var(--bg);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;max-width:92%}
-.msg b{font-size:14px;color:var(--link)}
-.msg p{margin:0;white-space:pre-line}
-.msg small{color:var(--hint)}
-.msg button{min-height:44px;border:0;border-radius:8px;background:var(--info-bg);color:var(--link);font-weight:600}
 nav{position:sticky;bottom:0;display:flex;background:var(--bg);border-top:1px solid var(--line)}
-nav button{flex:1;min-height:56px;border:0;border-top:3px solid transparent;background:transparent;font-size:15px;font-weight:600;color:var(--hint)}
+nav button{flex:1;min-height:56px;border:0;border-top:3px solid transparent;background:transparent;font-size:14px;font-weight:600;color:var(--hint);padding:0 4px}
 nav button.on{color:var(--link);border-top-color:var(--link)}
 .toast{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);width:calc(100% - 24px);max-width:456px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-radius:12px;background:#212121;color:#fff;z-index:20}
 .toast button{min-height:40px;padding:0 8px;border:0;background:transparent;color:#8cc8ff;font-weight:700}
+.saving{position:fixed;top:8px;left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:#212121;color:#fff;font-size:14px;z-index:30}
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center}
 .overlay{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;background:rgba(0,0,0,.45);z-index:10}
 .sheet{width:100%;max-width:480px;max-height:88vh;overflow-y:auto;background:var(--bg);border-radius:16px 16px 0 0;padding:16px;display:flex;flex-direction:column;gap:10px}
 .sheethead{display:flex;align-items:center;justify-content:space-between}
@@ -97,6 +96,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
 <script>
 (function () {
   'use strict';
+  var API_URL = window.POCA_API_URL || 'PASTE_WEB_APP_URL_HERE';
   var tg = window.Telegram && window.Telegram.WebApp;
   if (tg) {
     tg.ready();
@@ -106,297 +106,369 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     Object.keys(map).forEach(function (k) { if (map[k]) document.documentElement.style.setProperty(k, map[k]); });
   }
 
-  var TODAY = '2026-11-02';
-  var ME = 'You';
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  var RENT = 5, TRAINING = 25, FULL = RENT + TRAINING;
+  var S = null;
+  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, edit: false, draft: null, groups: null, approve: {}, paynow: null };
+  var toastTimer = null;
 
   function pad(n) { return String(n).padStart(2, '0'); }
   function iso(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
-  function dt(s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function dt(s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2] || 1); }
   function lab(s) { var d = dt(s); return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()]; }
+  function monthOf(m) { return MONTH[Number(m.slice(5)) - 1]; }
   function esc(v) { return String(v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function addMonth(m, n) { var d = dt(m + '-01'); d.setMonth(d.getMonth() + n); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+  function nextMonthName(m) { return monthOf(addMonth(m, 1)); }
+  function niceTime(v) {
+    var p = String(v || '').split(':').map(Number);
+    if (p.length < 2 || isNaN(p[0])) return '';
+    var h = p[0] % 12 || 12;
+    return h + (p[1] ? '.' + pad(p[1]) : '') + (p[0] < 12 ? 'am' : 'pm');
+  }
+  function whenWhere(c) {
+    var time = c.start ? niceTime(c.start) + (c.end ? ' to ' + niceTime(c.end) : '') : '';
+    return [time, c.location].filter(Boolean).join(', ');
+  }
+  function carryText(c, m) { return c > 0 ? '$' + c + ' comes off ' + nextMonthName(m) + '.' : c < 0 ? '$' + (-c) + ' gets added to ' + nextMonthName(m) + '.' : ''; }
 
-  function initData() {
-    var people = ['Amy', 'Bella', 'Chloe', 'Dana', 'Emi', 'Fay', 'Gwen', 'Hana', 'Ivy', ME, 'Zoe'];
-    var classes = {};
-    [[2026, 10], [2026, 11], [2027, 0]].forEach(function (ym) {
-      var n = new Date(ym[0], ym[1] + 1, 0).getDate();
-      for (var d = 1; d <= n; d++) if (new Date(ym[0], ym[1], d).getDay() === 1) classes[iso(ym[0], ym[1], d)] = { special: false, cancelled: false };
-    });
-    classes['2026-11-02'].cancelled = true;
-    classes['2026-12-14'].cancelled = true;
-    classes['2026-12-21'].special = true;
-    var status = {};
-    people.forEach(function (p) { status[p] = {}; });
-    function abs(list, day) { list.forEach(function (p) { status[p][day] = { s: 'absent', note: '' }; }); }
-    abs(['Chloe', 'Gwen'], '2026-11-09');
-    abs(['Bella', 'Chloe', ME], '2026-11-16');
-    abs(['Bella', 'Emi', 'Gwen'], '2026-11-23');
-    abs(['Bella'], '2026-11-30');
-    abs(['Bella'], '2026-12-07');
-    abs(['Bella', 'Fay', 'Gwen', 'Hana'], '2026-12-21');
-    abs(['Bella', 'Chloe', 'Emi', 'Fay', 'Gwen', 'Hana', 'Ivy', 'Zoe'], '2026-12-28');
-    status.Ivy['2026-12-07'] = { s: 'late', note: 'ETA 8.30pm' };
-    var pay = {};
-    people.forEach(function (p) { pay[p] = blankPay(); });
-    return { people: people, classes: classes, status: status, pay: pay, msgs: [{ text: 'December payment is due on 30 Nov.\nTap below to see your amount.', time: 'Sample message' }] };
-  }
-  function blankPay() { return { state: 'none', amount: 0, due: 0, specialAbs: [] }; }
-
-  var d = initData();
-  var ui = { role: 'teacher', tab: 'classes', myTab: 'classes', y: 2026, m: 11, sel: '2026-12-28', sheet: null, diff: '', newName: '', unsel: {}, toast: null };
-  var undoSnap = null, toastTimer = null;
-
-  function st(p, day) { var v = d.status[p] && d.status[p][day]; return v ? v.s : 'coming'; }
-  function active(prefix) { return Object.keys(d.classes).filter(function (k) { return k.indexOf(prefix) === 0 && !d.classes[k].cancelled; }).sort(); }
-  function fee(p) { return active('2026-12').reduce(function (t, k) { return t + (st(p, k) === 'absent' ? RENT : FULL); }, 0); }
-  function novAbs(p) { return active('2026-11').filter(function (k) { return !d.classes[k].special && st(p, k) === 'absent'; }); }
-  function offset(p) { return novAbs(p).length * TRAINING; }
-  function due(p) { return Math.max(0, fee(p) - offset(p)); }
-  function specialAbs(p) { return active('2026-12').filter(function (k) { return d.classes[k].special && st(p, k) === 'absent'; }); }
-  function setPay(p, state, amount) { var a = due(p); d.pay[p] = { state: state, due: a, amount: amount === undefined ? a : amount, specialAbs: specialAbs(p) }; }
-  function shown(p) { var q = d.pay[p]; return q.state === 'none' ? due(p) : q.due; }
-  function carry(p) {
-    var q = d.pay[p];
-    var penalty = q.state === 'none' ? 0 : specialAbs(p).filter(function (k) { return q.specialAbs.indexOf(k) < 0; }).length * TRAINING;
-    return (q.state === 'none' ? 0 : q.amount) + offset(p) - fee(p) - penalty;
-  }
-  function carryText(c) { return c > 0 ? '$' + c + ' comes off January.' : c < 0 ? '$' + (-c) + ' gets added to January.' : ''; }
-  function coming(day) { return d.people.filter(function (p) { return st(p, day) !== 'absent'; }).length; }
-  function lateList(day) { return d.people.filter(function (p) { return st(p, day) === 'late'; }).map(function (p) { var n = d.status[p][day].note; return n ? p + ' (' + n + ')' : p; }); }
-  function absentList(day) { return d.people.filter(function (p) { return st(p, day) === 'absent'; }); }
-  function headcount(day) {
-    var late = lateList(day), absent = absentList(day);
-    var t = lab(day) + ': ' + coming(day) + ' coming';
-    if (late.length) t += '\nLate: ' + late.join(', ');
-    return t + '\nAbsent: ' + (absent.length ? absent.join(', ') : 'nobody');
-  }
-  function linesHtml(p) {
-    var act = active('2026-12');
-    var away = act.filter(function (k) { return st(p, k) === 'absent'; }).length;
-    var here = act.length - away;
-    var h = line(here + (here === 1 ? ' class' : ' classes') + ' at $' + FULL, '$' + here * FULL);
-    if (away) h += line(away + (away === 1 ? ' absence' : ' absences') + ', rent only at $' + RENT, '$' + away * RENT);
-    novAbs(p).forEach(function (k) { h += line('Offset: absent ' + lab(k).slice(4), '-$' + TRAINING); });
-    return h;
-  }
-  function line(l, v) { return '<div class="line"><span>' + esc(l) + '</span><b>' + esc(v) + '</b></div>'; }
-  function toast(text, undoable) {
-    ui.toast = { text: text, undo: !!undoable };
+  function toast(text, undo) {
+    ui.toast = text; ui.undo = undo || null;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { ui.toast = null; undoSnap = null; render(); }, 6000);
+    toastTimer = setTimeout(function () { ui.toast = null; ui.undo = null; render(); }, 6000);
   }
-  function save() { undoSnap = JSON.stringify(d); }
+  function call(action, payload, done) {
+    if (!tg || !tg.initData) { ui.loadError = 'Please open this from the Telegram bot.'; render(); return; }
+    ui.saving = true; render();
+    var body = Object.assign({ month: ui.month }, payload || {});
+    fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ initData: tg.initData, action: action, payload: body }) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        ui.saving = false; ui.loadError = null;
+        if (res.error) {
+          if (!S) ui.loadError = res.error; else toast(res.error);
+          render();
+          return;
+        }
+        S = res; ui.month = res.month;
+        if (res.groups) ui.groups = res.groups;
+        init();
+        if (done) done(res);
+        render();
+      })
+      .catch(function () {
+        ui.saving = false;
+        if (!S) ui.loadError = 'Could not connect. Please check your internet and try again.';
+        else toast('That did not save. Please try again.');
+        render();
+      });
+  }
+  function init() {
+    if (S.pending || S.removed) return;
+    if (!ui.tab) ui.tab = S.admin ? 'classes' : 'myclasses';
+    if (ui.y === null) {
+      var d = dt(S.today); ui.y = d.getFullYear(); ui.m = d.getMonth();
+    }
+    if (ui.tab === 'mypay' && !S.myPayment) ui.tab = 'myclasses';
+  }
 
+  // ---------- admin: classes ----------
   function classesView() {
-    var alerts = Object.keys(d.classes).sort().filter(function (k) { return k >= TODAY && !d.classes[k].cancelled && coming(k) < 5; }).map(function (k) {
-      return '<button class="alert" data-act="jump" data-arg="' + k + '"><strong>' + lab(k) + ': only ' + coming(k) + ' coming.</strong> Tap to view or cancel.</button>';
+    var byDate = {};
+    S.admin.classes.forEach(function (c) { byDate[c.date] = c; });
+    var alerts = S.admin.classes.filter(function (c) { return c.date >= S.today && !c.cancelled && c.coming < S.admin.lowCount && S.admin.people.length; }).slice(0, 3).map(function (c) {
+      return '<button class="alert" data-act="jump" data-arg="' + c.date + '"><strong>' + lab(c.date) + ': only ' + c.coming + ' coming.</strong> Tap to view or cancel.</button>';
     }).join('');
     var first = new Date(ui.y, ui.m, 1), blanks = (first.getDay() + 6) % 7, count = new Date(ui.y, ui.m + 1, 0).getDate(), cells = '';
     for (var i = 0; i < blanks; i++) cells += '<button class="day" disabled aria-hidden="true"></button>';
     for (var day = 1; day <= count; day++) {
-      var s = iso(ui.y, ui.m, day), c = d.classes[s];
+      var s = iso(ui.y, ui.m, day), c = byDate[s];
       var cls = c ? (c.cancelled ? 'cancelled' : c.special ? 'special' : 'class') : '';
       var kind = c ? (c.cancelled ? 'cancelled' : c.special ? 'special class' : 'class') : 'no class';
-      cells += '<button class="day ' + cls + (s === TODAY ? ' today' : '') + (s === ui.sel ? ' sel' : '') + '" aria-label="' + lab(s) + ', ' + kind + '" data-act="pick" data-arg="' + s + '">' + day + '</button>';
+      cells += '<button class="day ' + cls + (s === S.today ? ' today' : '') + (s === ui.sel ? ' sel' : '') + '" aria-label="' + lab(s) + ', ' + kind + '" data-act="pick" data-arg="' + s + '">' + day + '</button>';
     }
     return '<h1>Classes</h1>' + alerts +
-      '<section class="card"><div class="calhead"><button class="icon" aria-label="Previous month" data-act="month" data-arg="-1">&#8249;</button><strong>' + MONTH[ui.m] + ' ' + ui.y + '</strong><button class="icon" aria-label="Next month" data-act="month" data-arg="1">&#8250;</button></div>' +
+      '<section class="card"><div class="calhead"><button class="icon" aria-label="Previous month" data-act="calMonth" data-arg="-1">&#8249;</button><strong>' + MONTH[ui.m] + ' ' + ui.y + '</strong><button class="icon" aria-label="Next month" data-act="calMonth" data-arg="1">&#8250;</button></div>' +
       '<div class="week"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div><div class="cal">' + cells + '</div>' +
       '<div class="legend"><span><i style="background:var(--btn)"></i>Class</span><span><i style="background:var(--special)"></i>Special class</span><span><i style="background:#d8dadf"></i>Cancelled</span></div>' +
-      '<div class="hint">Mondays are added for you. Tap any date to change it.</div></section>' + selectedView();
+      '<div class="hint">Mondays are added for you. Tap any date to change it.</div></section>' + selectedView(byDate);
   }
-  function selectedView() {
+  function draftFor(s, c) {
+    if (ui.draft && ui.draft.date === s) return ui.draft;
+    var base = c || S.admin.defaults;
+    ui.draft = { date: s, start: base.start, end: base.end, location: base.location, special: !!(c && c.special), statuses: {}, notify: true };
+    return ui.draft;
+  }
+  function classFields(f) {
+    return '<div class="times"><label class="field">Starts<input type="time" value="' + esc(f.start) + '" data-draft="start"></label><label class="field">Ends<input type="time" value="' + esc(f.end) + '" data-draft="end"></label></div>' +
+      '<label class="field">Location<input type="text" value="' + esc(f.location) + '" data-draft="location"></label>' +
+      '<label class="check"><input type="checkbox" data-draftcheck="special"' + (f.special ? ' checked' : '') + '><span>Special class (external teacher). Cannot be offset once paid.</span></label>' +
+      '<label class="check"><input type="checkbox" data-draftcheck="notify"' + (f.notify ? ' checked' : '') + '><span>Tell the group chat if the time or place is new or changed</span></label>';
+  }
+  function selectedView(byDate) {
     var s = ui.sel;
     if (!s) return '';
-    var c = d.classes[s], tag = '';
+    var c = byDate[s], tag = '';
     if (c && c.cancelled) tag = '<span class="tag cancelled">Cancelled</span>';
     else if (c && c.special) tag = '<span class="tag special">Special</span>';
     var h = '<section class="card"><div class="titlerow"><h2>' + lab(s) + '</h2>' + tag + '</div>';
-    if (!c) h += '<div class="hint">No class on this date.</div><button class="primary" data-act="addClass">Add a class</button>';
-    else if (c.cancelled) h += '<div class="hint">Nobody is charged for this class.</div><button class="outline" data-act="restore">Bring this class back</button>';
-    else {
-      var late = lateList(s), absent = absentList(s);
-      h += '<div class="big">' + coming(s) + ' <span>coming</span></div>';
-      if (late.length) h += '<div><strong>Late:</strong> ' + esc(late.join(', ')) + '</div>';
-      h += '<div><strong>Absent:</strong> ' + esc(absent.length ? absent.join(', ') : 'Nobody') + '</div>' +
-        '<label class="check"><input type="checkbox" data-change="special"' + (c.special ? ' checked' : '') + '><span>Special class (external teacher). Cannot be offset once paid.</span></label>' +
-        '<button class="primary" data-act="postHeadcount">Post headcount to group</button><button class="danger" data-act="cancelClass">Cancel this class</button>';
+    if (!c) {
+      h += '<div class="hint">No class on this date yet. Add one below.</div>' + classFields(draftFor(s, null)) + '<button class="primary" data-act="addClass">Add class</button>';
+    } else if (c.cancelled) {
+      h += '<div class="hint">Nobody is charged for this class.</div><button class="outline" data-act="restoreClass">Bring this class back</button>';
+    } else {
+      var f = draftFor(s, c);
+      h += '<div class="big">' + c.coming + ' <span>coming</span></div>';
+      if (c.late.length) h += '<div><strong>Late:</strong> ' + esc(c.late.join(', ')) + '</div>';
+      h += '<div><strong>Absent:</strong> ' + esc(c.absent.length ? c.absent.join(', ') : 'Nobody') + '</div>' +
+        '<button class="plain" data-act="postHeadcount">Post headcount to group</button>' + classFields(f) +
+        '<button class="plain" data-act="toggleEdit">' + (ui.edit ? 'Hide people' : 'Change someone\'s status') + '</button>';
+      if (ui.edit) h += c.everyone.map(function (p) {
+        var cur = f.statuses[p.id] || p.status;
+        return '<div class="row"><span>' + esc(p.name) + '</span><select aria-label="' + esc(p.name) + ' status" data-change="statusFor" data-arg="' + esc(p.id) + '">' + ['coming', 'late', 'absent'].map(function (o) { return '<option value="' + o + '"' + (cur === o ? ' selected' : '') + '>' + o[0].toUpperCase() + o.slice(1) + '</option>'; }).join('') + '</select></div>';
+      }).join('');
+      h += '<button class="primary" data-act="saveClass">Save changes</button><button class="danger" data-act="cancelClass">Cancel this class</button>';
     }
     return h + '</section>';
   }
+
+  // ---------- admin: payments ----------
   function paymentsView() {
-    var claimed = [], unpaid = [], done = [];
-    d.people.forEach(function (p) {
-      var q = d.pay[p];
-      if (q.state === 'claimed') claimed.push(p);
-      else if (q.state === 'none' && due(p) > 0) unpaid.push(p);
-      else done.push(p);
+    var rows = S.admin.payments, claimed = [], unpaid = [], done = [];
+    rows.forEach(function (r) {
+      if (r.state === 'claimed') claimed.push(r);
+      else if (r.state === 'none') unpaid.push(r);
+      else done.push(r);
     });
-    var expected = d.people.reduce(function (t, p) { return t + shown(p); }, 0);
-    var received = d.people.reduce(function (t, p) { return t + (d.pay[p].state === 'paid' ? d.pay[p].amount : 0); }, 0);
+    var expected = rows.reduce(function (a, r) { return a + (r.state === 'paid' || r.state === 'claimed' ? r.paid : r.toPay); }, 0);
+    var received = rows.reduce(function (a, r) { return a + (r.state === 'paid' ? r.paid : 0); }, 0);
     var pct = expected ? Math.min(100, Math.round(received / expected * 100)) : 0;
-    var selected = unpaid.filter(function (p) { return !ui.unsel[p]; }).length;
-    var h = '<h1>December payment</h1><section class="card"><div class="sum"><b>$' + received + ' <span>of $' + expected + '</span></b><span class="hint">Due 30 Nov</span></div><div class="progress"><div style="width:' + pct + '%"></div></div></section>';
-    if (claimed.length) h += '<section class="card"><div><h2>Said they\'ve paid</h2><div class="hint">Check these in your bank app, then confirm.</div></div>' + claimed.map(function (p) {
-      return '<div class="row"><button class="rowbtn" data-act="open" data-arg="' + esc(p) + '"><span>' + esc(p) + '</span><strong>$' + d.pay[p].due + '</strong></button><button class="small" data-act="confirm" data-arg="' + esc(p) + '">Confirm</button></div>';
+    var selected = unpaid.filter(function (r) { return !ui.unsel[r.id]; }).length;
+    var h = '<section class="calhead"><button class="icon" aria-label="Previous month" data-act="payMonth" data-arg="-1">&#8249;</button><h1 style="margin:0">' + monthOf(S.month) + ' payment</h1><button class="icon" aria-label="Next month" data-act="payMonth" data-arg="1">&#8250;</button></section>' +
+      '<section class="card"><div class="sum"><b>$' + received + ' <span>of $' + expected + '</span></b><span class="hint">Due ' + lab(S.due).slice(4) + '</span></div><div class="progress"><div style="width:' + pct + '%"></div></div></section>';
+    if (!rows.length) h += '<section class="card"><div class="hint">Nobody has joined yet. Approve people on the People tab first.</div></section>';
+    if (claimed.length) h += '<section class="card"><div><h2>Said they\'ve paid</h2><div class="hint">Check these in your bank app, then confirm.</div></div>' + claimed.map(function (r) {
+      return '<div class="row"><button class="rowbtn" data-act="open" data-arg="' + esc(r.id) + '"><span>' + esc(r.name) + '</span><strong>$' + r.paid + '</strong></button><button class="small" data-act="confirm" data-arg="' + esc(r.id) + '">Confirm</button></div>';
     }).join('') + '</section>';
-    if (unpaid.length) h += '<section class="card"><div><h2>Not paid yet</h2><div class="hint">Tap a name if they paid a different amount.</div></div>' + unpaid.map(function (p) {
-      return '<div class="row"><input type="checkbox" aria-label="Include ' + esc(p) + ' in the reminder" data-change="unsel" data-arg="' + esc(p) + '"' + (ui.unsel[p] ? '' : ' checked') + '><button class="rowbtn" data-act="open" data-arg="' + esc(p) + '"><span>' + esc(p) + '</span><strong>$' + due(p) + '</strong></button></div>';
+    if (unpaid.length) h += '<section class="card"><div><h2>Not paid yet</h2><div class="hint">Tap a name if they paid a different amount.</div></div>' + unpaid.map(function (r) {
+      return '<div class="row"><input type="checkbox" aria-label="Include ' + esc(r.name) + ' in the reminder" data-change="unsel" data-arg="' + esc(r.id) + '"' + (ui.unsel[r.id] ? '' : ' checked') + '><button class="rowbtn" data-act="open" data-arg="' + esc(r.id) + '"><span>' + esc(r.name) + '</span><strong>$' + r.toPay + '</strong></button></div>';
     }).join('') + '<button class="primary" data-act="remind">Remind selected in group (' + selected + ')</button><button class="outline" data-act="markAll">Mark everyone as paid</button></section>';
-    if (done.length) h += '<section class="card"><h2>Done</h2>' + done.map(function (p) {
-      var q = d.pay[p], c = carry(p), note = q.state === 'paid' ? 'Paid $' + q.amount : 'Nothing to pay';
-      if (c) note += '. ' + carryText(c);
-      return '<div class="row"><button class="rowbtn" data-act="open" data-arg="' + esc(p) + '"><span>' + esc(p) + '</span><span class="okline">' + esc(note) + '</span></button></div>';
+    if (done.length) h += '<section class="card"><h2>Done</h2>' + done.map(function (r) {
+      var note = r.state === 'paid' ? 'Paid $' + r.paid : 'Nothing to pay';
+      if (r.after) note += '. ' + carryText(r.after, S.month);
+      return '<div class="row"><button class="rowbtn" data-act="open" data-arg="' + esc(r.id) + '"><span>' + esc(r.name) + '</span><span class="okline">' + esc(note) + '</span></button></div>';
     }).join('') + '</section>';
     return h + '<button class="plain" data-act="download">Download Excel</button>';
   }
-  function peopleView() {
-    return '<h1>People</h1><section class="card">' + d.people.map(function (p) {
-      return '<div class="row" style="justify-content:space-between"><span>' + esc(p) + '</span>' + (p === ME ? '' : '<button class="text-danger" data-act="removePerson" data-arg="' + esc(p) + '">Remove</button>') + '</div>';
-    }).join('') + '</section><section class="card"><label for="newperson"><strong>Add someone</strong></label><input id="newperson" type="text" placeholder="Name" value="' + esc(ui.newName) + '" data-input="newName"><button class="primary" data-act="addPerson">Add</button></section>';
+  function linesHtml(lines) {
+    return lines.map(function (l) { return '<div class="line"><span>' + esc(l.l) + '</span><b>' + esc(l.v) + '</b></div>'; }).join('');
   }
-  function myClassesView() {
-    var q = d.pay[ME];
-    var groups = [['2026-11', 'November (already paid)'], ['2026-12', 'December'], ['2027-01', 'January']];
-    return '<h1>My classes</h1><div class="hint pad">You\'re marked as coming unless you change it.</div>' + groups.map(function (g) {
-      var items = active(g[0]).filter(function (k) { return k >= TODAY; });
-      if (!items.length) return '';
-      return '<h2 class="month">' + g[1] + '</h2>' + items.map(function (k) {
-        var c = d.classes[k], s = st(ME, k), rec = d.status[ME][k], hint = '';
-        var paidFor = g[0] === '2026-11' || (g[0] === '2026-12' && q.state !== 'none');
-        if (s === 'absent') hint = paidFor && c.special ? 'Special class: already paid, so this cannot be offset.' : paidFor ? '$' + TRAINING + ' comes off your next payment.' : 'You only pay the $' + RENT + ' rent for this class.';
+  function sheetView() {
+    if (!ui.sheet || !S.admin) return '';
+    var r = S.admin.payments.filter(function (x) { return x.id === ui.sheet; })[0];
+    if (!r) return '';
+    var amt = r.state === 'claimed' ? r.paid : r.toPay;
+    return '<div class="overlay"><div class="sheet" role="dialog" aria-label="' + esc(r.name) + ' payment"><div class="sheethead"><h2 style="font-size:20px">' + esc(r.name) + '</h2><button class="icon" aria-label="Close" data-act="closeSheet">&times;</button></div>' + linesHtml(r.lines) +
+      '<div class="total"><span>To pay</span><span>$' + amt + '</span></div>' + (r.state === 'paid' && r.after ? '<div class="note">' + esc(carryText(r.after, S.month)) + '</div>' : '') +
+      '<button class="primary" data-act="markExact">Paid $' + amt + '</button><label for="diffamt" style="font-weight:700;padding-top:6px">Paid a different amount</label>' +
+      '<div class="inline"><input id="diffamt" type="number" inputmode="numeric" placeholder="Amount" value="' + esc(ui.diff) + '" data-input="diff"><button class="outline" data-act="saveDiff">Save</button></div><div class="hint" id="diffnote">' + diffNote() + '</div>' +
+      (r.state === 'paid' || r.state === 'claimed' ? '<button class="plain" style="color:var(--danger);border:0" data-act="resetPay">Change back to not paid</button>' : '') + '</div></div>';
+  }
+  function diffNote() {
+    if (!ui.sheet || ui.diff === '' || isNaN(Number(ui.diff))) return '';
+    var r = S.admin.payments.filter(function (x) { return x.id === ui.sheet; })[0];
+    var gap = Number(ui.diff) - (r.state === 'claimed' ? r.paid : r.toPay);
+    return esc(carryText(gap, S.month).replace('comes off', 'will come off').replace('gets added to', 'will be added to'));
+  }
+
+  // ---------- admin: people ----------
+  function peopleView() {
+    var a = S.admin, h = '<h1>People</h1>';
+    if (a.pending.length) h += '<section class="card"><h2>Waiting for approval</h2>' + a.pending.map(function (p) {
+      var f = ui.approve[p.id] || { name: p.tgName, kind: 'member' };
+      ui.approve[p.id] = f;
+      return '<div class="card" style="padding:12px 0 0;border-top:1px solid var(--line);border-radius:0"><div class="hint">Telegram: ' + esc(p.tgName) + (p.username ? ' (@' + esc(p.username) + ')' : '') + '</div>' +
+        '<input type="text" aria-label="Name to show" placeholder="Name to show" value="' + esc(f.name) + '" data-input="approveName" data-arg="' + esc(p.id) + '">' +
+        '<select aria-label="Role" data-change="approveKind" data-arg="' + esc(p.id) + '">' + [['member', 'Member'], ['adminpays', 'Admin who also pays'], ['admin', 'Admin who doesn\'t pay (teacher)']].map(function (o) { return '<option value="' + o[0] + '"' + (f.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+        '<div class="inline"><button class="primary" data-act="approve" data-arg="' + esc(p.id) + '">Approve</button><button class="plain" style="width:auto;padding:0 18px" data-act="decline" data-arg="' + esc(p.id) + '">Decline</button></div></div>';
+    }).join('') + '</section>';
+    h += '<section class="card"><h2>Team</h2>' + a.people.map(function (p) {
+      var label = p.role === 'admin' ? (p.pays ? ' (admin)' : ' (teacher)') : '';
+      return '<div class="row" style="justify-content:space-between"><span>' + esc(p.name + label) + '</span><button class="text-danger" data-act="removePerson" data-arg="' + esc(p.id) + '">Remove</button></div>';
+    }).join('') + '<div class="hint">New people appear above after they open the app once.</div></section>';
+    h += '<section class="card"><h2>Group chat</h2>';
+    if (a.group.id) h += '<div>Connected to <strong>' + esc(a.group.title || 'your group') + '</strong>.</div>';
+    else h += '<div class="hint">Add @pocaheels_bot to your group, then tap Find my group.</div>';
+    h += '<button class="plain" data-act="findGroups">Find my group</button>';
+    if (ui.groups) h += ui.groups.length ? ui.groups.map(function (g) {
+      return '<div class="row" style="justify-content:space-between"><span>' + esc(g.title) + '</span><button class="small" data-act="setGroup" data-arg="' + esc(g.id) + '">Connect</button></div>';
+    }).join('') : '<div class="hint">No group found yet. Remove the bot from the group, add it again, then tap Find my group.</div>';
+    h += '</section>';
+    var pn = ui.paynow === null ? S.paynow : ui.paynow;
+    h += '<section class="card"><label for="paynow"><strong>PayNow number</strong></label><div class="inline"><input id="paynow" type="text" placeholder="Shown to members" value="' + esc(pn) + '" data-input="paynow"><button class="outline" data-act="savePaynow">Save</button></div></section>';
+    return h;
+  }
+
+  // ---------- member ----------
+  function myClassesCards() {
+    var groups = {}, order = [];
+    S.myClasses.forEach(function (c) {
+      var m = c.date.slice(0, 7);
+      if (!groups[m]) { groups[m] = []; order.push(m); }
+      groups[m].push(c);
+    });
+    if (!order.length) return '<section class="card"><div class="hint">No upcoming classes yet.</div></section>';
+    return order.slice(0, 3).map(function (m) {
+      return '<h2 class="month">' + monthOf(m) + (m < S.startMonth ? ' <small>already paid</small>' : '') + '</h2>' + groups[m].map(function (c) {
+        var hint = '';
+        if (c.status === 'absent') hint = c.paid && c.special ? 'Special class: already paid, so this cannot be offset.' : c.paid ? '$' + S.training + ' comes off your next payment.' : 'You only pay the $' + S.rent + ' rent for this class.';
         else if (c.special) hint = 'External teacher. Cannot be offset once paid.';
-        return '<section class="card"><div class="titlerow"><strong>' + lab(k) + '</strong>' + (c.special ? '<span class="tag special">Special</span>' : '') + '</div><div class="seg">' +
-          [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (s === o[0] ? ' on' : '') + '" data-act="status" data-arg="' + k + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' +
-          (s === 'late' ? '<input type="text" aria-label="Arrival time or note" placeholder="e.g. ETA 8.30pm" value="' + esc(rec.note) + '" data-input="note" data-arg="' + k + '">' : '') +
+        return '<section class="card"><div class="titlerow"><strong>' + lab(c.date) + '</strong>' + (c.special ? '<span class="tag special">Special</span>' : '') + '</div><div class="when">' + esc(whenWhere(c)) + '</div><div class="seg">' +
+          [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (c.status === o[0] ? ' on' : '') + '" data-act="status" data-arg="' + c.date + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+          (c.status === 'late' ? '<input type="text" aria-label="Arrival time or note" placeholder="e.g. ETA 8.30pm" value="' + esc(c.note) + '" data-note="' + c.date + '">' : '') +
           (hint ? '<div class="hint">' + esc(hint) + '</div>' : '') + '</section>';
       }).join('');
     }).join('');
   }
+  function myClassesView() {
+    return '<h1>My classes</h1><div class="hint pad">You\'re marked as coming unless you change it.</div>' + myClassesCards();
+  }
   function myPaymentView() {
-    var q = d.pay[ME], amt = shown(ME), c = carry(ME);
-    var status = q.state === 'paid' ? 'Paid and confirmed' : q.state === 'claimed' ? 'Waiting for your teacher to confirm' : amt === 0 ? 'Nothing to pay this month' : 'Not paid yet';
-    var h = '<h1>My payment</h1><section class="card"><div class="hint">December, due 30 Nov</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong>' + linesHtml(ME);
-    if ((q.state !== 'none' || amt === 0) && c) h += '<div class="note">' + carryText(c) + '</div>';
+    var r = S.myPayment;
+    var amt = r.state === 'claimed' || r.state === 'paid' ? r.paid : r.toPay;
+    var status = r.state === 'paid' ? 'Paid and confirmed' : r.state === 'claimed' ? 'Waiting for your teacher to confirm' : r.state === 'nothing' ? 'Nothing to pay this month' : 'Not paid yet';
+    var h = '<h1>My payment</h1><section class="card"><div class="hint">' + monthOf(S.month) + ', due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong>' + linesHtml(r.lines);
+    if (r.state !== 'none' && r.after) h += '<div class="note">' + esc(carryText(r.after, S.month)) + '</div>';
     h += '</section>';
-    if (q.state === 'none' && amt > 0) h += '<section class="card"><div>PayNow to [TEACHER\'S PAYNOW NUMBER], with your name in the reference.</div><button class="primary" data-act="claim">I\'ve paid</button></section>';
-    if (q.state === 'claimed') h += '<button class="plain" data-act="unclaim">I tapped this by mistake</button>';
+    if (r.state === 'none') h += '<section class="card"><div>' + (S.paynow ? 'PayNow to <strong>' + esc(S.paynow) + '</strong>, with your name in the reference.' : 'Pay your teacher, with your name in the reference.') + '</div><button class="primary" data-act="claim">I\'ve paid</button></section>';
+    if (r.state === 'claimed') h += '<button class="plain" data-act="unclaim">I tapped this by mistake</button>';
     return h;
   }
-  function chatView() {
-    return '<h1>Group chat</h1><div class="hint pad">A preview of what the bot would post. It doesn\'t post to your real group yet.</div>' + d.msgs.slice().reverse().map(function (m) {
-      return '<div class="msg"><b>Poca Heels Bot</b><p>' + esc(m.text) + '</p><small>' + esc(m.time) + '</small><button data-act="openFromChat">Open app</button></div>';
-    }).join('');
-  }
-  function sheetView() {
-    var p = ui.sheet;
-    if (!p || !d.pay[p]) return '';
-    var q = d.pay[p], amt = shown(p), c = carry(p);
-    return '<div class="overlay"><div class="sheet" role="dialog" aria-label="' + esc(p) + ' payment"><div class="sheethead"><h2 style="font-size:20px">' + esc(p) + '</h2><button class="icon" aria-label="Close" data-act="closeSheet">&times;</button></div>' + linesHtml(p) +
-      '<div class="total"><span>To pay</span><span>$' + amt + '</span></div>' + (q.state === 'paid' && c ? '<div class="note">' + carryText(c) + '</div>' : '') +
-      '<button class="primary" data-act="markExact">Paid $' + amt + '</button><label for="diffamt" style="font-weight:700;padding-top:6px">Paid a different amount</label>' +
-      '<div class="inline"><input id="diffamt" type="number" inputmode="numeric" placeholder="Amount" value="' + esc(ui.diff) + '" data-input="diff"><button class="outline" data-act="saveDiff">Save</button></div><div class="hint" id="diffnote">' + diffNote() + '</div>' +
-      (q.state !== 'none' ? '<button class="plain" style="color:var(--danger);border:0" data-act="resetPay">Change back to not paid</button>' : '') + '</div></div>';
-  }
-  function diffNote() {
-    if (!ui.sheet || ui.diff === '' || isNaN(Number(ui.diff))) return '';
-    var gap = Number(ui.diff) - shown(ui.sheet);
-    return gap < 0 ? '$' + (-gap) + ' will be added to January.' : gap > 0 ? '$' + gap + ' will come off January.' : '';
+
+  // ---------- page ----------
+  function center(title, text, retry) {
+    return '<div class="center"><h1>' + esc(title) + '</h1><div class="hint">' + esc(text) + '</div>' + (retry ? '<button class="primary" style="max-width:240px" data-act="reload">Try again</button>' : '') + '</div>';
   }
   function render() {
-    var y = window.scrollY, view;
-    if (ui.role === 'chat') view = chatView();
-    else if (ui.role === 'teacher') view = ui.tab === 'classes' ? classesView() : ui.tab === 'payments' ? paymentsView() : peopleView();
-    else view = ui.myTab === 'classes' ? myClassesView() : myPaymentView();
-    var cur = ui.role === 'teacher' ? ui.tab : ui.myTab;
-    var tabs = ui.role === 'teacher' ? [['classes', 'Classes'], ['payments', 'Payments'], ['people', 'People']] : ui.role === 'member' ? [['classes', 'My classes'], ['payment', 'My payment']] : [];
-    document.getElementById('app').innerHTML =
-      '<div class="bar"><small>Sample data, nothing is saved. Try it as:</small><div class="seg3">' + [['teacher', 'Teacher'], ['member', 'Member'], ['chat', 'Group chat']].map(function (r) { return '<button class="' + (ui.role === r[0] ? 'on' : '') + '" data-act="role" data-arg="' + r[0] + '">' + r[1] + '</button>'; }).join('') + '</div></div>' +
-      '<main>' + view + '</main>' +
-      (tabs.length ? '<nav>' + tabs.map(function (n) { return '<button class="' + (cur === n[0] ? 'on' : '') + '" data-act="tab" data-arg="' + n[0] + '">' + n[1] + '</button>'; }).join('') + '</nav>' : '') +
-      (ui.toast ? '<div class="toast" role="status"><span>' + esc(ui.toast.text) + '</span>' + (ui.toast.undo ? '<button data-act="undo">Undo</button>' : '') + '</div>' : '') + sheetView();
+    var y = window.scrollY, html;
+    if (ui.loadError) html = center('Something went wrong', ui.loadError, true);
+    else if (!S) html = center('Loading', 'One moment...');
+    else if (S.pending) html = center('Almost there', 'Hi ' + S.name + '. Your teacher needs to approve you before you can use the app. Check back soon.', true);
+    else if (S.removed) html = center('No access', 'You\'re no longer on this team. Ask your teacher if this is a mistake.');
+    else {
+      var tabs = [];
+      if (S.admin) tabs = [['classes', 'Classes'], ['payments', 'Payments'], ['people', 'People']];
+      tabs.push(['myclasses', S.admin ? 'My classes' : 'My classes']);
+      if (S.myPayment) tabs.push(['mypay', 'My payment']);
+      if (S.admin && !S.me.pays) tabs = tabs.filter(function (n) { return n[0] !== 'myclasses'; });
+      var view = ui.tab === 'classes' ? classesView() : ui.tab === 'payments' ? paymentsView() : ui.tab === 'people' ? peopleView() : ui.tab === 'mypay' ? myPaymentView() : myClassesView();
+      html = '<main>' + view + '</main><nav>' + tabs.map(function (n) { return '<button class="' + (ui.tab === n[0] ? 'on' : '') + '" data-act="tab" data-arg="' + n[0] + '">' + n[1] + '</button>'; }).join('') + '</nav>' + sheetView();
+    }
+    if (ui.toast) html += '<div class="toast" role="status"><span>' + esc(ui.toast) + '</span>' + (ui.undo ? '<button data-act="undo">Undo</button>' : '') + '</div>';
+    if (ui.saving && S) html += '<div class="saving" role="status">Saving...</div>';
+    document.getElementById('app').innerHTML = html;
     window.scrollTo(0, y);
   }
 
   var actions = {
-    role: function (a) { ui.role = a; ui.sheet = null; window.scrollTo(0, 0); },
-    tab: function (a) { if (ui.role === 'teacher') ui.tab = a; else ui.myTab = a; window.scrollTo(0, 0); },
-    pick: function (a) { ui.sel = a; },
-    jump: function (a) { var t = dt(a); ui.sel = a; ui.y = t.getFullYear(); ui.m = t.getMonth(); },
-    month: function (a) {
-      var t = new Date(ui.y, ui.m + Number(a), 1);
-      if (t >= new Date(2026, 10, 1) && t <= new Date(2027, 0, 1)) { ui.y = t.getFullYear(); ui.m = t.getMonth(); ui.sel = null; }
+    reload: function () { ui.loadError = null; call('state'); },
+    tab: function (a) { ui.tab = a; window.scrollTo(0, 0); render(); },
+    pick: function (a) { ui.sel = a; ui.edit = false; ui.draft = null; render(); },
+    jump: function (a) { var d = dt(a); ui.sel = a; ui.draft = null; ui.y = d.getFullYear(); ui.m = d.getMonth(); render(); },
+    calMonth: function (a) { var d = new Date(ui.y, ui.m + Number(a), 1); ui.y = d.getFullYear(); ui.m = d.getMonth(); ui.sel = null; render(); },
+    payMonth: function (a) { var m = addMonth(S.month, Number(a)); if (m < S.startMonth) return; ui.month = m; call('state'); },
+    addClass: function () {
+      var f = ui.draft;
+      call('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, special: f.special, cancelled: false, notify: f.notify }, function () { ui.draft = null; toast('Class added.'); });
     },
-    addClass: function () { d.classes[ui.sel] = { special: false, cancelled: false }; toast('Class added. Members can see it now.'); },
-    restore: function () { d.classes[ui.sel].cancelled = false; },
-    postHeadcount: function () { d.msgs.push({ text: headcount(ui.sel), time: 'Just now' }); toast('Added to the Group chat preview.'); },
-    cancelClass: function () { save(); d.classes[ui.sel].cancelled = true; d.msgs.push({ text: lab(ui.sel) + ': class is cancelled.', time: 'Just now' }); toast('Class cancelled.', true); },
-    open: function (a) { ui.sheet = a; ui.diff = ''; ui.toast = null; },
-    closeSheet: function () { ui.sheet = null; },
-    confirm: function (a) { d.pay[a].state = 'paid'; toast(a + ' confirmed.'); },
+    saveClass: function () {
+      var f = ui.draft;
+      var statuses = Object.keys(f.statuses).map(function (id) { return { id: id, status: f.statuses[id] }; });
+      call('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, special: f.special, statuses: statuses, notify: f.notify }, function () { ui.draft = null; toast('Saved.'); });
+    },
+    restoreClass: function () { ui.draft = null; call('saveClass', { date: ui.sel, cancelled: false }); },
+    cancelClass: function () {
+      var day = ui.sel;
+      ui.draft = null;
+      call('saveClass', { date: day, cancelled: true, notify: true }, function () { toast('Class cancelled.', { action: 'saveClass', payload: { date: day, cancelled: false } }); });
+    },
+    toggleEdit: function () { ui.edit = !ui.edit; render(); },
+    postHeadcount: function () { call('postHeadcount', { date: ui.sel }, function () { toast('Posted to the group.'); }); },
+    open: function (a) { ui.sheet = a; ui.diff = ''; ui.toast = null; render(); },
+    closeSheet: function () { ui.sheet = null; render(); },
+    confirm: function (a) { call('confirm', { id: a }, function () { toast('Confirmed.'); }); },
     remind: function () {
-      var names = d.people.filter(function (p) { return d.pay[p].state === 'none' && due(p) > 0 && !ui.unsel[p]; });
-      if (!names.length) { toast('Tick at least one person first.'); return; }
-      d.msgs.push({ text: 'Reminder: December payment is due on 30 Nov.\nStill to pay: ' + names.map(function (n) { return '@' + n; }).join(' ') + '\nTap below to see your amount.', time: 'Just now' });
-      toast('Added to the Group chat preview.');
+      var ids = S.admin.payments.filter(function (r) { return r.state === 'none' && !ui.unsel[r.id]; }).map(function (r) { return r.id; });
+      if (!ids.length) { toast('Tick at least one person first.'); render(); return; }
+      call('remind', { ids: ids }, function () { toast('Reminder posted to the group.'); });
     },
     markAll: function () {
-      save();
-      d.people.forEach(function (p) { if (d.pay[p].state === 'none' && due(p) > 0) setPay(p, 'paid'); else if (d.pay[p].state === 'claimed') d.pay[p].state = 'paid'; });
-      toast('Everyone marked as paid.', true);
+      var ids = S.admin.payments.filter(function (r) { return r.state === 'none' || r.state === 'claimed'; }).map(function (r) { return r.id; });
+      var month = S.month;
+      call('markAll', {}, function () { toast('Everyone marked as paid.', { action: 'resetPay', payload: { ids: ids, month: month } }); });
     },
-    markExact: function () { var p = ui.sheet; setPay(p, 'paid'); ui.sheet = null; toast(p + ' marked as paid.'); },
+    markExact: function () { var id = ui.sheet; ui.sheet = null; call('markPaid', { id: id }, function () { toast('Marked as paid.'); }); },
     saveDiff: function () {
-      var n = Number(ui.diff), p = ui.sheet;
+      var n = Number(ui.diff), id = ui.sheet;
       if (ui.diff === '' || isNaN(n) || n < 0) return;
-      setPay(p, 'paid', n); ui.sheet = null; toast(p + ': $' + n + ' saved.');
+      ui.sheet = null;
+      call('markPaid', { id: id, amount: n }, function () { toast('$' + n + ' saved.'); });
     },
-    resetPay: function () { d.pay[ui.sheet] = blankPay(); ui.sheet = null; },
-    download: function () { toast('In the real app, this downloads the Excel file.'); },
-    removePerson: function (a) { save(); d.people = d.people.filter(function (x) { return x !== a; }); toast(a + ' removed.', true); },
-    addPerson: function () {
-      var n = ui.newName.trim();
-      if (!n || d.people.indexOf(n) >= 0) return;
-      d.people.push(n); d.status[n] = {}; d.pay[n] = blankPay(); ui.newName = ''; toast(n + ' added.');
+    resetPay: function () { var id = ui.sheet; ui.sheet = null; call('resetPay', { id: id }); },
+    download: function () { var u = S.admin.sheetUrl; if (tg && tg.openLink) tg.openLink(u); else window.open(u); },
+    approve: function (a) {
+      var f = ui.approve[a];
+      call('approve', { id: a, name: f.name, role: f.kind === 'member' ? 'member' : 'admin', pays: f.kind !== 'admin' }, function () { delete ui.approve[a]; toast(f.name + ' approved.'); });
     },
+    decline: function (a) { call('decline', { id: a }); },
+    removePerson: function (a) {
+      var p = S.admin.people.filter(function (x) { return x.id === a; })[0];
+      call('removePerson', { id: a }, function () { toast(p.name + ' removed.', { action: 'restorePerson', payload: { id: a, role: p.role } }); });
+    },
+    findGroups: function () { call('findGroups'); },
+    setGroup: function (a) {
+      var g = ui.groups.filter(function (x) { return x.id === a; })[0];
+      call('setGroup', { id: a, title: g.title }, function () { ui.groups = null; toast('Group connected.'); });
+    },
+    savePaynow: function () { var v = ui.paynow === null ? S.paynow : ui.paynow; call('setPaynow', { value: v }, function () { ui.paynow = null; toast('Saved.'); }); },
     status: function (a) {
-      var p = a.split('|'), me = d.status[ME];
-      if (p[1] === 'coming') delete me[p[0]];
-      else me[p[0]] = { s: p[1], note: (me[p[0]] && me[p[0]].note) || '' };
+      var p = a.split('|');
+      var cur = S.myClasses.filter(function (c) { return c.date === p[0]; })[0];
+      call('setStatus', { date: p[0], status: p[1], note: cur ? cur.note : '' });
     },
-    claim: function () { setPay(ME, 'claimed'); toast('Sent to your teacher to confirm.'); },
-    unclaim: function () { d.pay[ME] = blankPay(); },
-    openFromChat: function () { ui.role = 'member'; ui.myTab = 'payment'; window.scrollTo(0, 0); },
-    undo: function () { if (undoSnap) { d = JSON.parse(undoSnap); undoSnap = null; } ui.toast = null; }
+    claim: function () { call('claim', {}, function () { toast('Sent to your teacher to confirm.'); }); },
+    unclaim: function () { call('unclaim'); },
+    undo: function () { var u = ui.undo; ui.toast = null; ui.undo = null; if (u) call(u.action, u.payload); }
   };
 
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]');
-    if (!el) return;
+    if (!el || ui.saving && el.getAttribute('data-act') !== 'closeSheet' && el.getAttribute('data-act') !== 'tab') return;
     actions[el.getAttribute('data-act')](el.getAttribute('data-arg'));
-    render();
   });
   document.addEventListener('change', function (e) {
     var k = e.target.getAttribute('data-change');
-    if (k === 'special') { d.classes[ui.sel].special = e.target.checked; render(); }
+    var dc = e.target.getAttribute('data-draftcheck');
+    if (dc && ui.draft) ui.draft[dc] = e.target.checked;
     if (k === 'unsel') { ui.unsel[e.target.getAttribute('data-arg')] = !e.target.checked; render(); }
+    if (k === 'statusFor' && ui.draft) ui.draft.statuses[e.target.getAttribute('data-arg')] = e.target.value;
+    if (k === 'approveKind') ui.approve[e.target.getAttribute('data-arg')].kind = e.target.value;
+    var note = e.target.getAttribute('data-note');
+    if (note) call('setStatus', { date: note, status: 'late', note: e.target.value });
   });
   document.addEventListener('input', function (e) {
     var k = e.target.getAttribute('data-input');
-    if (k === 'newName') ui.newName = e.target.value;
-    if (k === 'note') d.status[ME][e.target.getAttribute('data-arg')].note = e.target.value;
-    if (k === 'diff') { ui.diff = e.target.value; document.getElementById('diffnote').textContent = diffNote(); }
+    var dk = e.target.getAttribute('data-draft');
+    if (dk && ui.draft) ui.draft[dk] = e.target.value;
+    if (k === 'diff') { ui.diff = e.target.value; document.getElementById('diffnote').textContent = diffNote().replace(/&amp;/g, '&'); }
+    if (k === 'paynow') ui.paynow = e.target.value;
+    if (k === 'approveName') ui.approve[e.target.getAttribute('data-arg')].name = e.target.value;
   });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && S && !ui.saving && !ui.sheet && !ui.draft) call('state'); });
 
-  ['Amy', 'Dana'].forEach(function (p) { setPay(p, 'paid'); });
-  ['Ivy', 'Zoe'].forEach(function (p) { setPay(p, 'claimed'); });
-  setPay('Emi', 'paid', 30);
-  d.msgs.push({ text: headcount('2026-11-09'), time: 'Sample message' });
   render();
+  call('state');
 })();
 </script>
 </body>
