@@ -183,6 +183,8 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
 .card .proofimg{max-height:45vh;object-fit:contain}
 .stick{position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom));margin-bottom:-8px;padding:8px 0;background:var(--bg)}
 .note.bad{color:var(--danger)}
+.confirm{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(30,5,30,.5)}
+.confirmbox{width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:22px;background:var(--bg);text-align:center}
 .btnrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .btnrow button{padding:4px 8px;font-size:15px;line-height:1.2}
 .inline{display:flex;gap:8px}
@@ -613,8 +615,10 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     var h = '<div class="overlay"><div class="sheet" role="dialog" aria-label="' + esc(r.name) + ' screenshot"><div class="sheethead"><h2>' + esc(r.name) + '</h2><button class="icon" aria-label="Close" data-act="closeSheet">&times;</button></div>';
     h += '<div class="total"><span>' + (r.state === 'paid' ? 'Paid' : 'To pay') + '</span><span>$' + r.paid + '</span></div>';
     h += img ? '<img class="proofimg" alt="Payment screenshot from ' + esc(r.name) + '" src="' + img + '">' : '<div class="hint" style="text-align:center;padding:40px 0"><span class="spin" aria-hidden="true"></span>Loading screenshot...</div>';
-    if (r.state === 'claimed') h += '<div class="btnrow stick"><button class="primary" data-act="confirm" data-arg="' + esc(r.id) + '">Confirm</button><button class="danger" data-act="rejectProof" data-arg="' + esc(r.id) + '">' + (ui.confirmReject ? 'Tap again to reject' : 'Reject') + '</button></div>';
-    return h + '</div></div>';
+    if (r.state === 'claimed') h += '<div class="btnrow stick"><button class="primary" data-act="confirm" data-arg="' + esc(r.id) + '">Confirm</button><button class="danger" data-act="rejectProof" data-arg="' + esc(r.id) + '">Reject</button></div>';
+    h += '</div></div>';
+    if (ui.confirmReject) h += '<div class="confirm"><div class="confirmbox" role="alertdialog" aria-modal="true" aria-label="Reject this screenshot?"><h2>Reject this screenshot?</h2><div class="hint">' + esc(r.name) + ' will be asked to send the correct one.</div><div class="btnrow"><button class="plain" data-act="cancelReject">Cancel</button><button class="danger" data-act="rejectYes" data-arg="' + esc(r.id) + '">Reject</button></div></div></div>';
+    return h;
   }
   function sheetView() {
     if (ui.proofView && S.admin) return proofSheet();
@@ -739,7 +743,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
   function myPaymentView(extra) {
     var r = S.myPayment;
     var amt = r.state === 'claimed' || r.state === 'paid' ? r.paid : r.toPay;
-    var status = r.state === 'paid' ? 'Paid and confirmed' : r.state === 'claimed' ? 'Waiting for your teacher to confirm' : r.state === 'nothing' ? 'Nothing to pay this month' : r.proof === 'rejected' ? 'Screenshot rejected' : 'Not paid yet';
+    var status = r.state === 'paid' ? 'Paid and confirmed' : r.state === 'claimed' ? 'Waiting for Poca to confirm' : r.state === 'nothing' ? 'Nothing to pay this month' : r.proof === 'rejected' ? 'Screenshot rejected' : 'Not paid yet';
     var h = '<section class="stage"><h1>' + monthOf(S.month) + ' payment</h1><div class="hint">Due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong></section>' + (extra || '');
     if (r.lines.length || (r.state !== 'none' && r.after)) {
       h += '<section class="card">' + linesHtml(r.lines).replace('class="line"', 'class="line" style="border-top:0;padding-top:0"');
@@ -769,8 +773,8 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     var y = window.scrollY, html, oldSheet = document.querySelector('.sheet'), sheetY = oldSheet ? oldSheet.scrollTop : 0;
     if (ui.loadError) html = center('Something went wrong', ui.loadError, true);
     else if (!S) html = center('Loading', 'One moment...');
-    else if (S.pending) html = center('Almost there', 'Hi ' + S.name + '. Your teacher needs to approve you before you can use the app. Check back soon.', true);
-    else if (S.removed) html = center('No access', 'You\'re no longer on this team. Ask your teacher if this is a mistake.');
+    else if (S.pending) html = center('Almost there', 'Hi ' + S.name + '. Poca/admin needs to approve you before you can use the app. Check back soon.', true);
+    else if (S.removed) html = center('No access', 'You\'re no longer on this team. Ask Poca/admin if this is a mistake.');
     else {
       var tabs = [];
       if (S.admin) tabs = [['classes', 'Calendar'], ['payments', 'Payments'], ['people', 'People']];
@@ -881,8 +885,10 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
         render();
       });
     },
-    rejectProof: function (a) {
-      if (!ui.confirmReject) { ui.confirmReject = true; render(); return; }
+    rejectProof: function () { ui.confirmReject = true; render(); },
+    cancelReject: function () { ui.confirmReject = false; render(); },
+    rejectYes: function (a) {
+      tapped = { act: 'rejectProof', arg: a };
       var p = S.admin.payments.filter(function (x) { return x.id === a; })[0], name = p ? p.name : 'They';
       ui.confirmReject = false;
       delete ui.proofs[S.month + '|' + a];
@@ -895,7 +901,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       var image = ui.upload;
       if (!image) return;
       askToMessage(function () {
-        call('claim', { image: image }, function () { ui.upload = null; toast('Sent to your teacher to confirm.'); });
+        call('claim', { image: image }, function () { ui.upload = null; toast('Sent to Poca to confirm.'); });
       });
     },
     history: function (a) { ui.hist = a; ui.histOpen = {}; ui.toast = null; render(); },

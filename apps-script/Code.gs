@@ -520,7 +520,7 @@ const MEMBER_ACTIONS = {
   state() {},
   setStatus(me, p) {
     validStatus(p.status);
-    if (p.date < today()) throw new Error('This class has already passed. Please ask your teacher to change it.');
+    if (p.date < today()) throw new Error('This class has already passed. Please ask Poca to change it.');
     const c = readTable('Classes').find((x) => x.date === p.date);
     if (!c || c.cancelled) throw new Error('This class is not on the schedule');
     upsertStatus(me.id, p.date, p.status, p.note);
