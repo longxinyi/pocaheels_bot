@@ -25,6 +25,8 @@ const DEFAULTS = {
   PAYNOW: '',
   GROUP_CHAT_ID: '',
   GROUP_TITLE: '',
+  TOPIC_PAYMENTS: '',
+  TOPIC_HANGOUTS: '',
   APP_LINK: '',
   GENERATED_THROUGH: '',
 };
@@ -368,7 +370,7 @@ function stateFor(me, month) {
       payments: people.map((p) => led.summary(p, pm)),
       people: data.people.filter((p) => p.role === 'member' || p.role === 'admin').map((p) => ({ id: p.id, name: p.name, role: p.role, pays: p.pays === 'yes' })),
       pending: data.people.filter((p) => p.role === 'pending').map((p) => ({ id: p.id, tgName: p.tg_name, username: p.username })),
-      group: { id: cfg.GROUP_CHAT_ID, title: cfg.GROUP_TITLE },
+      group: { id: cfg.GROUP_CHAT_ID, title: cfg.GROUP_TITLE, topics: { payments: !!cfg.TOPIC_PAYMENTS, hangouts: !!cfg.TOPIC_HANGOUTS } },
       sheetUrl: 'https://docs.google.com/spreadsheets/d/' + bookOrActive().getId() + '/export?format=xlsx',
     };
   }
@@ -468,21 +470,21 @@ const MEMBER_ACTIONS = {
       const before = h.title + hangoutWhen(h);
       h.title = title; h.date = p.date; h.start = p.start || ''; h.end = p.end || ''; h.location = location;
       writeTable('Hangouts', rows);
-      if (p.notify && before !== h.title + hangoutWhen(h)) notifyGroup(esc('‼️ Hangout updated: ' + title + ', ' + hangoutWhen(h) + '.'));
+      if (p.notify && before !== h.title + hangoutWhen(h)) notifyGroup(esc('‼️ Hangout updated: ' + title + ', ' + hangoutWhen(h) + '.'), 'TOPIC_HANGOUTS');
       return;
     }
     if (p.date < today() && me.role !== 'admin') throw new Error('Please pick a date that has not passed');
     const h = { id: Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36), date: p.date, title, start: p.start || '', end: p.end || '', location, by: me.id, going: me.id, deleted: '' };
     rows.push(h);
     writeTable('Hangouts', rows);
-    if (p.notify) notifyGroup(esc('😆 New hangout from ' + (me.name || 'a teammate') + ': ' + title + ', ' + hangoutWhen(h) + '.'));
+    if (p.notify) notifyGroup(esc('😆 New hangout from ' + (me.name || 'a teammate') + ': ' + title + ', ' + hangoutWhen(h) + '.'), 'TOPIC_HANGOUTS');
   },
   deleteHangout(me, p) {
     const rows = hangoutRows();
     const h = editableHangout(rows, me, p.id);
     h.deleted = 'yes';
     writeTable('Hangouts', rows);
-    if (h.date >= today()) notifyGroup(esc('😭 Hangout cancelled: ' + h.title + ', ' + hangoutWhen(h) + '.'));
+    if (h.date >= today()) notifyGroup(esc('😭 Hangout cancelled: ' + h.title + ', ' + hangoutWhen(h) + '.'), 'TOPIC_HANGOUTS');
   },
   toggleGoing(me, p) {
     const rows = hangoutRows();
@@ -607,6 +609,16 @@ const ADMIN_ACTIONS = {
   },
   setPaynow(me, p) { setConfig('PAYNOW', String(p.value || '').slice(0, 100)); },
   findGroups() {},
+  setTopic(me, p) {
+    const key = p.which === 'hangouts' ? 'TOPIC_HANGOUTS' : 'TOPIC_PAYMENTS';
+    const link = String(p.link || '').trim();
+    if (!link) { setConfig(key, ''); return; }
+    const cfg = config();
+    if (!cfg.GROUP_CHAT_ID) throw new Error('Connect your group chat first');
+    const thread = threadFromLink(link, cfg.GROUP_CHAT_ID);
+    telegram('sendChatAction', { chat_id: cfg.GROUP_CHAT_ID, action: 'typing', message_thread_id: thread });
+    setConfig(key, String(thread));
+  },
   setGroup(me, p) {
     setConfig('GROUP_CHAT_ID', String(p.id));
     setConfig('GROUP_TITLE', String(p.title || ''));
@@ -629,14 +641,28 @@ function telegram(method, body) {
   }
   return json.result;
 }
-function sendToGroup(html) {
+/** Reads a topic's number from a link like t.me/c/1234567890/78 or t.me/c/1234567890/78/90. */
+function threadFromLink(link, groupId) {
+  const m = /t\.me\/c\/(\d+)\/(\d+)(?:\/\d+)?(?:\?thread=(\d+))?/.exec(link);
+  if (!m) throw new Error('That does not look like a link to a topic in your group');
+  if (String(groupId).replace(/^-100/, '') !== m[1]) throw new Error('That link is from a different group');
+  return Number(m[3] || m[2]);
+}
+function sendToGroup(html, topicKey) {
   const cfg = config();
   if (!cfg.GROUP_CHAT_ID) throw new Error('Connect your group chat first, on the People tab');
   const body = { chat_id: cfg.GROUP_CHAT_ID, text: html, parse_mode: 'HTML', disable_web_page_preview: true };
   if (cfg.APP_LINK) body.reply_markup = { inline_keyboard: [[{ text: 'Open app', url: cfg.APP_LINK }]] };
+  if (topicKey && cfg[topicKey]) body.message_thread_id = Number(cfg[topicKey]);
   try {
     telegram('sendMessage', body);
   } catch (err) {
+    if (/thread not found/i.test(err.message) && body.message_thread_id) {
+      // The topic was deleted or closed: post in General so the message isn't lost.
+      delete body.message_thread_id;
+      telegram('sendMessage', body);
+      return;
+    }
     if (!err.migrateTo) throw err;
     // Telegram gives a group a new ID when it upgrades (for example, when topics are turned on).
     setConfig('GROUP_CHAT_ID', String(err.migrateTo));
@@ -645,16 +671,16 @@ function sendToGroup(html) {
   }
 }
 /** For updates that shouldn't undo a saved change: no group yet, or a Telegram hiccup, is only logged. */
-function notifyGroup(html) {
+function notifyGroup(html, topicKey) {
   try {
-    if (config().GROUP_CHAT_ID) sendToGroup(html);
+    if (config().GROUP_CHAT_ID) sendToGroup(html, topicKey);
   } catch (err) {
     logAction('system', 'group_message_failed', { error: err.message });
   }
 }
 function sendReminder(people) {
   const tags = people.map((p) => '<a href="tg://user?id=' + encodeURIComponent(p.id) + '">' + esc(p.name) + '</a>').join(' ');
-  sendToGroup('gentle reminder for payment 🙏🏻 ' + tags + ' mark in the app once transferred!');
+  sendToGroup('gentle reminder for payment 🙏🏻 ' + tags + ' mark in the app once transferred!', 'TOPIC_PAYMENTS');
 }
 function fetchGroups() {
   const updates = telegram('getUpdates', { limit: 100 });
@@ -684,7 +710,7 @@ function tick() {
     const month = paymentMonth(cfg);
     const due = dueDate(month);
     if (t === due) {
-      once('sent_due_' + month, () => sendToGroup('hi!! ' + monthName(month) + ' payment is due today. open the app to see your amount due 💰💰'));
+      once('sent_due_' + month, () => sendToGroup('hi!! ' + monthName(month) + ' payment is due today. open the app to see your amount due 💰💰', 'TOPIC_PAYMENTS'));
     }
     const dayAfter = dateOf(due);
     dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);

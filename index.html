@@ -152,7 +152,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var S = null;
-  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, edit: false, editing: false, adding: false, hg: null, confirmDel: null, openMonths: {}, draft: null, groups: null, approve: {}, paynow: null };
+  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, topics: {}, edit: false, editing: false, adding: false, hg: null, confirmDel: null, openMonths: {}, draft: null, groups: null, approve: {}, paynow: null };
   var toastTimer = null;
 
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -512,6 +512,14 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     if (a.group.id) h += '<div>Connected to <strong>' + esc(a.group.title || 'your group') + '</strong>.</div>';
     else h += '<div class="hint">Add @pocaheels_bot to your group, then tap Find my group.</div>';
     h += '<button class="plain" data-act="findGroups">Find my group</button>';
+    if (a.group.id) {
+      [['payments', 'Payment reminders go to'], ['hangouts', 'Hangout messages go to']].forEach(function (t) {
+        var on = a.group.topics && a.group.topics[t[0]];
+        var val = ui.topics[t[0]] || '';
+        h += '<label class="field">' + t[1] + ': ' + (on ? 'chosen topic' : 'General') + '<div class="inline"><input type="text" placeholder="Paste a link to the topic" value="' + esc(val) + '" data-topic="' + t[0] + '"><button class="outline" data-act="saveTopic" data-arg="' + t[0] + '">Save</button></div></label>';
+      });
+      h += '<div class="hint">Everything else goes to General.</div>';
+    }
     if (ui.groups) h += ui.groups.length ? ui.groups.map(function (g) {
       return '<div class="row" style="justify-content:space-between"><span>' + esc(g.title) + '</span><button class="small" data-act="setGroup" data-arg="' + esc(g.id) + '">Connect</button></div>';
     }).join('') : '<div class="hint">No group found yet. Remove the bot from the group, add it again, then tap Find my group.</div>';
@@ -707,6 +715,11 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       var p = S.admin.people.filter(function (x) { return x.id === a; })[0];
       call('removePerson', { id: a }, function () { toast(p.name + ' removed.', { action: 'restorePerson', payload: { id: a, role: p.role } }); });
     },
+    saveTopic: function (a) {
+      var link = ui.topics[a] || '';
+      if (!link.trim()) { toast('Paste a link to the topic first.'); render(); return; }
+      call('setTopic', { which: a, link: link }, function () { ui.topics[a] = ''; toast('Topic saved.'); });
+    },
     findGroups: function () { call('findGroups'); },
     setGroup: function (a) {
       var g = ui.groups.filter(function (x) { return x.id === a; })[0];
@@ -751,6 +764,8 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   });
   document.addEventListener('input', function (e) {
     var k = e.target.getAttribute('data-input');
+    var tk = e.target.getAttribute('data-topic');
+    if (tk) ui.topics[tk] = e.target.value;
     var hk = e.target.getAttribute('data-hg');
     if (hk && ui.hg) { ui.hg[hk] = e.target.value; var hb = document.getElementById('hgsave'); if (hb) hb.disabled = !canSaveHangout(); }
     var dk = e.target.getAttribute('data-draft');
