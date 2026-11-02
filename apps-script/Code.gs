@@ -9,6 +9,7 @@ const TABLES = {
   People: ['id', 'name', 'username', 'tg_name', 'role', 'pays', 'joined', 'left'],
   Classes: ['date', 'special', 'cancelled', 'start', 'end', 'location', 'kind', 'title'],
   Status: ['date', 'person_id', 'status', 'note', 'marked_at'],
+  Hangouts: ['id', 'date', 'title', 'start', 'end', 'location', 'by', 'going', 'deleted'],
   Payments: ['month', 'person_id', 'state', 'amount', 'at', 'by'],
   Config: ['key', 'value'],
   Log: ['at', 'actor', 'action', 'detail'],
@@ -28,7 +29,7 @@ const DEFAULTS = {
   GENERATED_THROUGH: '',
 };
 const MONTHS_AHEAD = 6;
-const KINDS = { paid: 'Training', free: 'Free training', performance: 'Performance', hangout: 'Crew hangout' };
+const KINDS = { paid: 'Training', free: 'Extra training', performance: 'Performance', hangout: 'Crew hangout' };
 function isPaid(c) { return !c.kind || c.kind === 'paid'; }
 function isTraining(c) { return isPaid(c) || c.kind === 'free'; }
 function itemName(c) { return c.title || KINDS[c.kind || 'paid']; }
@@ -178,8 +179,8 @@ function verifyInitData(initData) {
  * - Each class costs RENT + TRAINING. An absence costs RENT only, so an absence marked after paying
  *   automatically leaves TRAINING as credit for the next payment.
  * - A special class marked absent after paying stays at the full price, so there is no offset.
- * - A cancelled class costs nothing, and so does anything that isn't paid training: free training,
- *   performances and crew hangouts never affect what anyone owes.
+ * - A cancelled class costs nothing, and so does anything that isn't paid training: extra training,
+ *   performances and hangouts never affect what anyone owes.
  * - Months before START_MONTH were paid outside this app: they cost nothing, and an absence there
  *   gives TRAINING back as credit.
  */
@@ -285,6 +286,16 @@ function stateFor(me, month) {
     paid: c.date.slice(0, 7) < cfg.START_MONTH || data.payments.some((p) => p.person_id === me.id && p.month === c.date.slice(0, 7)),
   }));
   if (me.pays === 'yes') out.myPayment = led.summary(me, pm);
+  const nameOf = {};
+  data.people.forEach((p) => { nameOf[p.id] = p.name || p.tg_name; });
+  out.hangouts = readTable('Hangouts').filter((h) => !h.deleted).map((h) => {
+    const going = h.going ? h.going.split(',') : [];
+    return {
+      id: h.id, date: h.date, title: h.title, start: h.start, end: h.end, location: h.location,
+      byName: nameOf[h.by] || '', going: going.map((id) => nameOf[id]).filter(Boolean),
+      imGoing: going.indexOf(me.id) >= 0, canEdit: me.role === 'admin' || h.by === me.id,
+    };
+  }).sort((a, b) => (a.date < b.date ? -1 : 1));
   if (me.role !== 'admin') {
     out.calendar = data.classes.map((c) => Object.assign({
       date: c.date, special: !!c.special, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
@@ -402,11 +413,62 @@ const MEMBER_ACTIONS = {
     if (readTable('Payments').some((r) => r.month === p.month && r.person_id === me.id)) return;
     savePayment(p.month, me.id, 'claimed', currentToPay(me, p.month), me.id);
   },
+  saveHangout(me, p) {
+    const title = String(p.title || '').trim().slice(0, 60);
+    if (!title) throw new Error('Please enter a name');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date)) throw new Error('Invalid date');
+    ['start', 'end'].forEach((k) => {
+      if (p[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(p[k])) throw new Error('Please enter a valid time');
+    });
+    const location = String(p.location || '').trim().slice(0, 100);
+    const rows = hangoutRows();
+    if (p.id) {
+      const h = editableHangout(rows, me, p.id);
+      const before = h.title + hangoutWhen(h);
+      h.title = title; h.date = p.date; h.start = p.start || ''; h.end = p.end || ''; h.location = location;
+      writeTable('Hangouts', rows);
+      if (p.notify && before !== h.title + hangoutWhen(h)) notifyGroup(esc('Hangout updated: ' + title + ', ' + hangoutWhen(h) + '.'));
+      return;
+    }
+    if (p.date < today() && me.role !== 'admin') throw new Error('Please pick a date that has not passed');
+    const h = { id: Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36), date: p.date, title, start: p.start || '', end: p.end || '', location, by: me.id, going: me.id, deleted: '' };
+    rows.push(h);
+    writeTable('Hangouts', rows);
+    if (p.notify) notifyGroup(esc('New hangout from ' + (me.name || 'a teammate') + ': ' + title + ', ' + hangoutWhen(h) + '.'));
+  },
+  deleteHangout(me, p) {
+    const rows = hangoutRows();
+    const h = editableHangout(rows, me, p.id);
+    h.deleted = 'yes';
+    writeTable('Hangouts', rows);
+    if (h.date >= today()) notifyGroup(esc('Hangout cancelled: ' + h.title + ', ' + hangoutWhen(h) + '.'));
+  },
+  toggleGoing(me, p) {
+    const rows = hangoutRows();
+    const h = rows.find((x) => x.id === String(p.id) && !x.deleted);
+    if (!h) throw new Error('This hangout no longer exists');
+    const going = h.going ? h.going.split(',') : [];
+    const i = going.indexOf(me.id);
+    if (i >= 0) going.splice(i, 1); else going.push(me.id);
+    h.going = going.join(',');
+    writeTable('Hangouts', rows);
+  },
   unclaim(me, p) {
     const row = readTable('Payments').find((r) => r.month === p.month && r.person_id === me.id);
     if (row && row.state === 'claimed') savePayment(p.month, me.id, null);
   },
 };
+function hangoutRows() { return readTable('Hangouts'); }
+function editableHangout(rows, me, id) {
+  const h = rows.find((x) => x.id === String(id) && !x.deleted);
+  if (!h) throw new Error('This hangout no longer exists');
+  if (me.role !== 'admin' && h.by !== me.id) throw new Error('Only the person who added this can change it');
+  return h;
+}
+function hangoutWhen(h) {
+  const w = whenWhere(h);
+  return niceDate(h.date) + (w ? ', ' + w : '');
+}
 function personById(id) {
   const person = readTable('People').find((x) => x.id === String(id));
   if (!person) throw new Error('Person not found');
@@ -445,9 +507,9 @@ const ADMIN_ACTIONS = {
       const old = readTable('Status').find((r) => r.person_id === String(u.id) && r.date === p.date);
       upsertStatus(String(u.id), p.date, u.status, old ? old.note : '');
     });
-    if (p.cancelled && p.notify) sendToGroup(esc(niceDate(p.date) + ': class is cancelled.'));
-    else if (p.notify && isNew) sendToGroup(esc('New ' + (isTraining(c) ? 'class' : 'event') + ' on ' + niceDate(p.date) + ': ' + itemName(c) + ', ' + whenWhere(c) + '.'));
-    else if (p.notify && before !== whenWhere(c)) sendToGroup(esc(niceDate(p.date) + ' ' + itemName(c) + ' is now ' + whenWhere(c) + '.'));
+    if (p.cancelled && p.notify) notifyGroup(esc(niceDate(p.date) + ': class is cancelled.'));
+    else if (p.notify && isNew) notifyGroup(esc('New ' + (isTraining(c) ? 'class' : 'event') + ' on ' + niceDate(p.date) + ': ' + itemName(c) + ', ' + whenWhere(c) + '.'));
+    else if (p.notify && before !== whenWhere(c)) notifyGroup(esc(niceDate(p.date) + ' ' + itemName(c) + ' is now ' + whenWhere(c) + '.'));
   },
   confirm(me, p) {
     const row = readTable('Payments').find((r) => r.month === p.month && r.person_id === String(p.id));
@@ -531,6 +593,14 @@ function sendToGroup(html) {
   const body = { chat_id: cfg.GROUP_CHAT_ID, text: html, parse_mode: 'HTML', disable_web_page_preview: true };
   if (cfg.APP_LINK) body.reply_markup = { inline_keyboard: [[{ text: 'Open app', url: cfg.APP_LINK }]] };
   telegram('sendMessage', body);
+}
+/** For updates that shouldn't undo a saved change: no group yet, or a Telegram hiccup, is only logged. */
+function notifyGroup(html) {
+  try {
+    if (config().GROUP_CHAT_ID) sendToGroup(html);
+  } catch (err) {
+    logAction('system', 'group_message_failed', { error: err.message });
+  }
 }
 function sendReminder(month, people, overdue) {
   const tags = people.map((p) => '<a href="tg://user?id=' + encodeURIComponent(p.id) + '">' + esc(p.name) + '</a>').join(' ');

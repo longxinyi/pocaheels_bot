@@ -48,6 +48,11 @@ h2{margin:0;font-size:16px}
 .tag.free{background:rgba(46,125,50,.16);color:var(--ok)}
 .tag.performance{background:rgba(106,63,181,.18);color:var(--kind-p)}
 .tag.hangout{background:rgba(194,24,91,.16);color:var(--kind-h)}
+.day{position:relative}
+.day .dot{position:absolute;bottom:4px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#c2185b;box-shadow:0 0 0 1px #fff}
+.hg{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}
+.hg:first-of-type{border-top:0;padding-top:0}
+.hgtop{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .tag.cancelled{background:var(--sec);color:var(--hint)}
 .big{font-size:28px;font-weight:700;line-height:1}
 .big span{font-size:16px;font-weight:500;color:var(--hint)}
@@ -139,7 +144,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var S = null;
-  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, edit: false, editing: false, openMonths: {}, draft: null, groups: null, approve: {}, paynow: null };
+  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, edit: false, editing: false, adding: false, hg: null, confirmDel: null, openMonths: {}, draft: null, groups: null, approve: {}, paynow: null };
   var toastTimer = null;
 
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -160,7 +165,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     var time = c.start ? niceTime(c.start) + (c.end ? ' to ' + niceTime(c.end) : '') : '';
     return [time, c.location].filter(Boolean).join(', ');
   }
-  var KIND = { paid: 'Training', free: 'Free training', performance: 'Performance', hangout: 'Crew hangout' };
+  var KIND = { paid: 'Training', free: 'Extra', performance: 'Performance', hangout: 'Hangout' };
   function itemTag(c) {
     if (c.cancelled) return '<span class="tag cancelled">Cancelled</span>';
     if (c.special) return '<span class="tag special">Special</span>';
@@ -214,19 +219,24 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   function classesView() {
     var byDate = {};
     (S.admin ? S.admin.classes : S.calendar).forEach(function (c) { byDate[c.date] = c; });
+    var hgDates = {};
+    S.hangouts.forEach(function (h) { hgDates[h.date] = true; });
     var first = new Date(ui.y, ui.m, 1), blanks = (first.getDay() + 6) % 7, count = new Date(ui.y, ui.m + 1, 0).getDate(), cells = '';
     for (var i = 0; i < blanks; i++) cells += '<button class="day" disabled aria-hidden="true"></button>';
     for (var day = 1; day <= count; day++) {
       var s = iso(ui.y, ui.m, day), c = byDate[s];
       var cls = c ? (c.cancelled ? 'cancelled' : c.special ? 'special' : c.kind === 'free' ? 'free' : c.kind === 'performance' ? 'performance' : c.kind === 'hangout' ? 'hangout' : 'class') : '';
-      var kind = c ? (c.cancelled ? 'cancelled' : c.special ? 'special class' : (KIND[c.kind] || 'class')) : 'nothing on';
-      cells += '<button class="day ' + cls + (s === S.today ? ' today' : '') + (s === ui.sel ? ' sel' : '') + '" aria-label="' + lab(s) + ', ' + kind + '" data-act="pick" data-arg="' + s + '">' + day + '</button>';
+      var kind = c ? (c.cancelled ? 'cancelled' : c.special ? 'special class' : (KIND[c.kind] || 'class')) : (hgDates[s] ? 'hangout' : 'nothing on');
+      if (!cls && hgDates[s]) cls = 'hangout';
+      var dot = c && hgDates[s] ? '<span class="dot"></span>' : '';
+      if (c && hgDates[s]) kind += ', hangout';
+      cells += '<button class="day ' + cls + (s === S.today ? ' today' : '') + (s === ui.sel ? ' sel' : '') + '" aria-label="' + lab(s) + ', ' + kind + '" data-act="pick" data-arg="' + s + '">' + day + dot + '</button>';
     }
     return '<h1>Calendar</h1>' +
       '<section class="card"><div class="calhead"><button class="icon" aria-label="Previous month" data-act="calMonth" data-arg="-1">&#8249;</button><strong>' + MONTH[ui.m] + ' ' + ui.y + '</strong><button class="icon" aria-label="Next month" data-act="calMonth" data-arg="1">&#8250;</button></div>' +
       '<div class="week"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div><div class="cal">' + cells + '</div>' +
-      '<div class="legend"><span><i style="background:var(--btn)"></i>Training</span><span><i style="background:#2e7d32"></i>Free</span><span><i style="background:#b35900"></i>Special</span><span><i style="background:#6a3fb5"></i>Performance</span><span><i style="background:#c2185b"></i>Hangout</span><span><i style="background:#d8dadf"></i>Cancelled</span></div>' +
-      (S.admin ? '<div class="hint">Mondays are added for you. Tap any date to change it or add something.</div>' : '<div class="hint">Tap a date to see the details.</div>') + '</section>' + (S.admin ? selectedView(byDate) : memberSelected(byDate));
+      '<div class="legend"><span><i style="background:var(--btn)"></i>Training</span><span><i style="background:#2e7d32"></i>Extra</span><span><i style="background:#b35900"></i>Special</span><span><i style="background:#6a3fb5"></i>Performance</span><span><i style="background:#c2185b"></i>Hangout</span><span><i style="background:#d8dadf"></i>Cancelled</span></div>' +
+      (S.admin ? '<div class="hint">Mondays are added for you. Tap any date to change it or add something.</div>' : '<div class="hint">Tap a date to see the details or add a hangout.</div>') + '</section>' + (S.admin ? selectedView(byDate) : memberSelected(byDate)) + hangoutSection();
   }
   var PENCIL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>';
   function draftFor(s, c) {
@@ -251,7 +261,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     if (b) b.disabled = !canSave();
   }
   function classFields(f) {
-    return '<label class="field">Type<select data-change="draftKind">' + [['free', 'Free training'], ['paid', 'Paid training ($30)'], ['performance', 'Performance'], ['hangout', 'Crew hangout']].map(function (o) { return '<option value="' + o[0] + '"' + (f.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+    return '<label class="field">Type<select data-change="draftKind">' + [['free', 'Extra (unpaid)'], ['paid', 'Training ($30)'], ['performance', 'Performance']].map(function (o) { return '<option value="' + o[0] + '"' + (f.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
       '<label class="field">Name (optional)<input type="text" placeholder="e.g. Year-end showcase" value="' + esc(f.title) + '" data-draft="title"></label>' +
       '<div class="times"><label class="field">Starts<input type="time" value="' + esc(f.start) + '" data-draft="start"></label><label class="field">Ends<input type="time" value="' + esc(f.end) + '" data-draft="end"></label></div>' +
       '<label class="field">Location<input type="text" value="' + esc(f.location) + '" data-draft="location"></label>' +
@@ -265,7 +275,8 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     var h = '<section class="card"><div class="titlerow"><h2>' + lab(s) + '</h2>' + tag + '</div>';
     if (c && c.title) h += '<div><strong>' + esc(c.title) + '</strong></div>';
     if (!c) {
-      h += '<div class="hint">Nothing on this date yet. Add something below.</div>' + classFields(draftFor(s, null)) + '<button class="primary" data-act="addClass">Add</button>';
+      if (ui.adding) h += classFields(draftFor(s, null)) + '<button class="primary" data-act="addClass">Add</button><button class="plain" data-act="stopAdding">Discard</button>';
+      else h += '<div class="hint">Nothing on this date yet.</div><button class="outline" data-act="startAdding">Add class or performance</button>';
     } else if (c.cancelled) {
       h += '<div class="hint">Nobody is charged for this class.</div><button class="outline" data-act="restoreClass">Bring this class back</button>';
     } else if (ui.editing) {
@@ -288,11 +299,46 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     return h + '</section>';
   }
 
+  function hangoutSection() {
+    var s = ui.sel;
+    if (!s) return '';
+    var items = S.hangouts.filter(function (h) { return h.date === s; });
+    var canAdd = s >= S.today || !!S.admin;
+    if (!items.length && !canAdd) return '';
+    var html = '<section class="card"><h2>Hangouts</h2>';
+    var f = ui.hg;
+    if (f && f.date === s) {
+      html += '<label class="field">Name<input type="text" placeholder="e.g. Crew dinner" value="' + esc(f.title) + '" data-hg="title"></label>' +
+        '<div class="times"><label class="field">Starts (optional)<input type="time" value="' + esc(f.start) + '" data-hg="start"></label><label class="field">Ends (optional)<input type="time" value="' + esc(f.end) + '" data-hg="end"></label></div>' +
+        '<label class="field">Location (optional)<input type="text" value="' + esc(f.location) + '" data-hg="location"></label>' +
+        '<label class="check"><input type="checkbox" data-hgcheck="notify"' + (f.notify ? ' checked' : '') + '><span>Inform group</span></label>' +
+        '<button class="primary" id="hgsave" data-act="saveHangout"' + (canSaveHangout() ? '' : ' disabled') + '>Save hangout</button><button class="plain" data-act="closeHangout">Discard</button>';
+      return html + '</section>';
+    }
+    html += items.map(function (h) {
+      var w = whenWhere(h);
+      var btns = h.canEdit ? '<div class="inline"><button class="pencil" aria-label="Edit ' + esc(h.title) + '" data-act="editHangout" data-arg="' + esc(h.id) + '">' + PENCIL + '</button><button class="text-danger" data-act="deleteHangout" data-arg="' + esc(h.id) + '">' + (ui.confirmDel === h.id ? 'Tap again to delete' : 'Delete') + '</button></div>' : '';
+      return '<div class="hg"><div class="hgtop"><strong>' + esc(h.title) + '</strong>' + btns + '</div>' +
+        (w ? '<div>' + esc(w) + '</div>' : '') +
+        '<div class="hint">Added by ' + esc(h.byName) + '</div>' +
+        '<div><strong>Going (' + h.going.length + '):</strong> ' + esc(h.going.length ? h.going.join(', ') : 'Nobody yet') + '</div>' +
+        '<button class="' + (h.imGoing ? 'plain' : 'outline') + '" data-act="goHangout" data-arg="' + esc(h.id) + '">' + (h.imGoing ? 'Can\'t make it' : 'I\'m going') + '</button></div>';
+    }).join('');
+    if (canAdd) html += '<button class="outline" data-act="addHangout">Add a hangout</button>';
+    return html + '</section>';
+  }
+  function canSaveHangout() {
+    var f = ui.hg;
+    if (!f || !String(f.title).trim()) return false;
+    if (!f.id) return true;
+    var h = S.hangouts.filter(function (x) { return x.id === f.id; })[0];
+    return !h || f.title.trim() !== h.title || f.start !== h.start || f.end !== h.end || f.location.trim() !== h.location;
+  }
   function memberSelected(byDate) {
     var s = ui.sel;
     if (!s) return '';
     var c = byDate[s];
-    if (!c) return '<section class="card"><div class="titlerow"><h2>' + lab(s) + '</h2></div><div class="hint">Nothing on this date.</div></section>';
+    if (!c) return '<section class="card"><div class="titlerow"><h2>' + lab(s) + '</h2></div><div class="hint">No class on this date.</div></section>';
     var h = '<section class="card"><div class="titlerow"><h2>' + lab(s) + '</h2>' + itemTag(c) + '</div>';
     if (c.title) h += '<div><strong>' + esc(c.title) + '</strong></div>';
     h += '<div>' + esc(whenWhere(c)) + '</div>';
@@ -465,15 +511,35 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     reload: function () { ui.loadError = null; call('state'); },
     tab: function (a) { ui.tab = a; window.scrollTo(0, 0); render(); },
     meView: function (a) { ui.meView = a; window.scrollTo(0, 0); render(); },
-    pick: function (a) { ui.sel = a; ui.edit = false; ui.editing = false; ui.draft = null; render(); },
+    pick: function (a) { ui.sel = a; ui.edit = false; ui.editing = false; ui.adding = false; ui.hg = null; ui.confirmDel = null; ui.draft = null; render(); },
+    startAdding: function () { ui.adding = true; ui.draft = null; render(); },
+    stopAdding: function () { ui.adding = false; ui.draft = null; render(); },
+    addHangout: function () { ui.hg = { id: null, date: ui.sel, title: '', start: '', end: '', location: '', notify: true }; render(); },
+    editHangout: function (a) {
+      var h = S.hangouts.filter(function (x) { return x.id === a; })[0];
+      ui.hg = { id: h.id, date: h.date, title: h.title, start: h.start, end: h.end, location: h.location, notify: true };
+      render();
+    },
+    closeHangout: function () { ui.hg = null; render(); },
+    saveHangout: function () {
+      var f = ui.hg;
+      if (!canSaveHangout()) return;
+      call('saveHangout', { id: f.id, date: f.date, title: f.title, start: f.start, end: f.end, location: f.location, notify: f.notify }, function () { ui.hg = null; toast('Hangout saved.'); });
+    },
+    deleteHangout: function (a) {
+      if (ui.confirmDel !== a) { ui.confirmDel = a; render(); return; }
+      ui.confirmDel = null;
+      call('deleteHangout', { id: a }, function () { toast('Hangout deleted.'); });
+    },
+    goHangout: function (a) { call('toggleGoing', { id: a }); },
     toggleMonth: function (a) { var p = a.split('|'); ui.openMonths[p[0]] = p[1] !== 'true'; render(); },
     editClass: function () { ui.editing = true; ui.draft = null; render(); },
     stopEditing: function () { ui.editing = false; ui.edit = false; ui.draft = null; render(); },
-    calMonth: function (a) { var d = new Date(ui.y, ui.m + Number(a), 1); ui.y = d.getFullYear(); ui.m = d.getMonth(); ui.sel = null; ui.edit = false; ui.editing = false; ui.draft = null; render(); },
+    calMonth: function (a) { var d = new Date(ui.y, ui.m + Number(a), 1); ui.y = d.getFullYear(); ui.m = d.getMonth(); ui.sel = null; ui.edit = false; ui.editing = false; ui.adding = false; ui.hg = null; ui.draft = null; render(); },
     payMonth: function (a) { var m = addMonth(S.month, Number(a)); if (m < S.startMonth) return; ui.month = m; call('state'); },
     addClass: function () {
       var f = ui.draft;
-      call('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, kind: f.kind, title: f.title, special: f.kind === 'paid' && f.special, cancelled: false, notify: f.notify }, function () { ui.draft = null; toast('Class added.'); });
+      call('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, kind: f.kind, title: f.title, special: f.kind === 'paid' && f.special, cancelled: false, notify: f.notify }, function () { ui.draft = null; ui.adding = false; toast('Added.'); });
     },
     saveClass: function () {
       var f = ui.draft;
@@ -543,6 +609,8 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   document.addEventListener('change', function (e) {
     var k = e.target.getAttribute('data-change');
     if (k === 'draftKind' && ui.draft) { ui.draft.kind = e.target.value; if (ui.draft.kind !== 'paid') ui.draft.special = false; render(); }
+    var hc = e.target.getAttribute('data-hgcheck');
+    if (hc && ui.hg) ui.hg[hc] = e.target.checked;
     var dc = e.target.getAttribute('data-draftcheck');
     if (dc && ui.draft) { ui.draft[dc] = e.target.checked; refreshSave(); }
     if (k === 'unsel') { ui.unsel[e.target.getAttribute('data-arg')] = !e.target.checked; render(); }
@@ -553,13 +621,15 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   });
   document.addEventListener('input', function (e) {
     var k = e.target.getAttribute('data-input');
+    var hk = e.target.getAttribute('data-hg');
+    if (hk && ui.hg) { ui.hg[hk] = e.target.value; var hb = document.getElementById('hgsave'); if (hb) hb.disabled = !canSaveHangout(); }
     var dk = e.target.getAttribute('data-draft');
     if (dk && ui.draft) { ui.draft[dk] = e.target.value; refreshSave(); }
     if (k === 'diff') { ui.diff = e.target.value; document.getElementById('diffnote').textContent = diffNote().replace(/&amp;/g, '&'); }
     if (k === 'paynow') ui.paynow = e.target.value;
     if (k === 'approveName') ui.approve[e.target.getAttribute('data-arg')].name = e.target.value;
   });
-  document.addEventListener('visibilitychange', function () { if (!document.hidden && S && !ui.saving && !ui.sheet && !ui.draft) call('state'); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && S && !ui.saving && !ui.sheet && !ui.draft && !ui.hg) call('state'); });
 
   render();
   call('state');
