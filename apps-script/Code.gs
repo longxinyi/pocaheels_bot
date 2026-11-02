@@ -549,13 +549,9 @@ function tick() {
   const t = today();
   const hour = nowHour();
   if (hour >= 10) {
-    const day = Number(t.slice(8));
     const month = paymentMonth(cfg);
-    const data = loadData();
-    if (day === 25 && month > t.slice(0, 7)) {
-      once('sent_open_' + month, () => sendToGroup(monthName(month) + ' payment is due on ' + niceDate(dueDate(month)).slice(4) + '.\nOpen the app to see your amount.'));
-    }
     if (t === dueDate(month)) {
+      const data = loadData();
       const led = buildLedger(data, cfg);
       const unpaid = billable(data.people).filter((p) => led.summary(p, month).state === 'none');
       if (unpaid.length) once('sent_due_' + month, () => sendReminder(month, unpaid));
