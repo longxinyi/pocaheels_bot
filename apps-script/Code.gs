@@ -622,7 +622,11 @@ function telegram(method, body) {
     method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true,
   });
   const json = JSON.parse(res.getContentText());
-  if (!json.ok) throw new Error('Telegram: ' + json.description);
+  if (!json.ok) {
+    const err = new Error('Telegram: ' + json.description);
+    err.migrateTo = json.parameters && json.parameters.migrate_to_chat_id;
+    throw err;
+  }
   return json.result;
 }
 function sendToGroup(html) {
@@ -630,7 +634,15 @@ function sendToGroup(html) {
   if (!cfg.GROUP_CHAT_ID) throw new Error('Connect your group chat first, on the People tab');
   const body = { chat_id: cfg.GROUP_CHAT_ID, text: html, parse_mode: 'HTML', disable_web_page_preview: true };
   if (cfg.APP_LINK) body.reply_markup = { inline_keyboard: [[{ text: 'Open app', url: cfg.APP_LINK }]] };
-  telegram('sendMessage', body);
+  try {
+    telegram('sendMessage', body);
+  } catch (err) {
+    if (!err.migrateTo) throw err;
+    // Telegram gives a group a new ID when it upgrades (for example, when topics are turned on).
+    setConfig('GROUP_CHAT_ID', String(err.migrateTo));
+    body.chat_id = err.migrateTo;
+    telegram('sendMessage', body);
+  }
 }
 /** For updates that shouldn't undo a saved change: no group yet, or a Telegram hiccup, is only logged. */
 function notifyGroup(html) {
@@ -647,12 +659,16 @@ function sendReminder(people) {
 function fetchGroups() {
   const updates = telegram('getUpdates', { limit: 100 });
   const seen = {};
+  const upgraded = {};
   updates.forEach((u) => {
     const m = u.message || u.my_chat_member || u.edited_message;
     const chat = m && m.chat;
-    if (chat && (chat.type === 'group' || chat.type === 'supergroup')) seen[chat.id] = chat.title;
+    if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return;
+    seen[chat.id] = chat.title;
+    if (m.migrate_to_chat_id) { upgraded[chat.id] = true; seen[m.migrate_to_chat_id] = chat.title; }
+    if (m.migrate_from_chat_id) upgraded[m.migrate_from_chat_id] = true;
   });
-  return Object.keys(seen).map((id) => ({ id, title: seen[id] }));
+  return Object.keys(seen).filter((id) => !upgraded[id]).map((id) => ({ id, title: seen[id] }));
 }
 
 // ---------- automatic messages, run twice a day ----------
