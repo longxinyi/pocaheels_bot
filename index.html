@@ -747,7 +747,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       h += '</section>';
     }
     if (r.state === 'none' && ui.upload) {
-      h += '<section class="card"><strong>Is this the right screenshot?</strong><img class="proofimg" alt="Your payment screenshot" src="' + ui.upload + '"><div class="btnrow"><button class="primary" data-act="sendProof">Send to teacher</button><label class="plain filebtn">Choose another<input type="file" accept="image/*" data-change="proofFile"></label></div></section>';
+      h += '<section class="card"><strong>Is this the right screenshot?</strong><img class="proofimg" alt="Your payment screenshot" src="' + ui.upload + '"><div class="btnrow"><button class="primary" data-act="sendProof">Send to Poca</button><label class="plain filebtn">Choose another<input type="file" accept="image/*" data-change="proofFile"></label></div></section>';
     } else if (r.state === 'none') {
       h += '<section class="card">' + (r.proof === 'rejected' ? '<div class="note bad">Your last screenshot was rejected. Please upload the correct one.</div>' : '') + '<div>' + (S.paynow ? 'PayNow to <strong>' + esc(S.paynow) + '</strong>. ' : '') + 'Screenshot after payment and upload here.</div><label class="primary filebtn">Upload screenshot<input type="file" accept="image/*" data-change="proofFile"></label></section>';
     }
