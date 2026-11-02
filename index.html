@@ -175,6 +175,8 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
 .sheethead h2{font-size:30px}
 .total{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0 4px;border-top:1.5px solid var(--text);font-weight:700}
 .total span:last-child{font-family:var(--display);font-size:30px;font-weight:600;line-height:1}
+.btnrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.btnrow button{padding:4px 8px;font-size:15px;line-height:1.2}
 .inline{display:flex;gap:8px}
 .inline input{flex:1;min-width:0}
 .inline button{width:auto;padding:0 18px}
@@ -445,7 +447,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
           return '<div class="row"><span>' + esc(p.name) + '</span><select aria-label="' + esc(p.name) + ' status" data-change="statusFor" data-arg="' + esc(p.id) + '">' + ['coming', 'late', 'absent'].map(function (o) { return '<option value="' + o + '"' + (cur === o ? ' selected' : '') + '>' + o[0].toUpperCase() + o.slice(1) + '</option>'; }).join('') + '</select></div>';
         }).join('') + '<button class="primary" id="savebtn" data-act="saveClass"' + (canSave() ? '' : ' disabled') + '>Save changes</button><button class="plain" data-act="stopEditing">Discard changes</button>';
       } else {
-        h += '<button class="outline" data-act="toggleEdit">Change someone\'s status</button><button class="danger" data-act="cancelClass">' + (c.kind === 'performance' || c.kind === 'hangout' ? 'Cancel this event' : 'Cancel this class') + '</button>';
+        h += '<div class="btnrow"><button class="outline" data-act="toggleEdit">Change status</button><button class="danger" data-act="cancelClass">' + (c.kind === 'performance' || c.kind === 'hangout' ? 'Cancel event' : 'Cancel class') + '</button></div>';
       }
     }
     return h + '</section>';
@@ -529,7 +531,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     if (unpaid.length) h += foldCard('payUnpaid', 'Not paid yet', peopleCount(unpaid.length), true, function () {
       return '<div class="hint">Tap a name if they paid a different amount.</div>' + unpaid.map(function (r) {
         return '<div class="row"><input type="checkbox" aria-label="Include ' + esc(r.name) + ' in the reminder" data-change="unsel" data-arg="' + esc(r.id) + '"' + (ui.unsel[r.id] ? '' : ' checked') + '><button class="rowbtn" data-act="open" data-arg="' + esc(r.id) + '"><span>' + esc(r.name) + '</span><strong>$' + r.toPay + '</strong></button></div>';
-      }).join('') + '<button class="primary" data-act="remind">Remind selected in group (' + selected + ')</button><button class="outline" data-act="markAll">Mark everyone as paid</button>';
+      }).join('') + '<div class="btnrow"><button class="primary" data-act="remind">Remind selected (' + selected + ')</button><button class="outline" data-act="markAll">Mark all paid</button></div>';
     });
     if (done.length) h += foldCard('payDone', 'Done', peopleCount(done.length), false, function () {
       return done.map(function (r) {
