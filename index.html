@@ -64,7 +64,13 @@ input[type=text],input[type=number],select{font-weight:400;width:100%;min-height
 .seg .coming.on{background:var(--bg);color:var(--link);box-shadow:inset 0 0 0 1px var(--link)}
 .seg .late.on{background:#8a4500;color:#fff}
 .seg .absent.on{background:var(--danger);color:#fff}
-.month{margin:18px 4px 0;padding-bottom:6px;font-size:22px;font-weight:700;color:var(--text);border-bottom:2px solid var(--text)}
+.month{display:flex;align-items:center;gap:8px;width:100%;min-height:52px;margin:6px 0 0;padding:0 4px 6px;border:0;border-bottom:2px solid var(--text);background:transparent;font-size:22px;font-weight:700;color:var(--text);text-align:left}
+.month .count{margin-left:auto;font-size:14px;font-weight:500;color:var(--hint)}
+.month svg{flex-shrink:0;transition:transform .15s}
+.month[aria-expanded=true] svg{transform:rotate(180deg)}
+.primary:disabled{opacity:.4;cursor:default}
+.infoline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pencil{width:44px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--link)}
 .cl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
 .cl:first-child{border-top:0;padding-top:0}
 .cl:last-child{padding-bottom:0}
@@ -76,8 +82,7 @@ input[type=text],input[type=number],select{font-weight:400;width:100%;min-height
 .cl input[type=text]{min-height:44px}
 .card.list{gap:0;padding:12px 14px}
 .usual{display:flex;gap:6px;font-size:14px;color:var(--hint);padding:0 4px}
-.month small{font-size:14px;font-weight:500;color:var(--hint)}
-.month:first-of-type{margin-top:8px}
+.month small{font-size:14px;font-weight:600;color:var(--ok)}
 .when{font-size:14px;color:var(--hint)}
 .field{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
 .times{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -115,13 +120,18 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     var t = tg.themeParams || {};
     var map = { '--bg': t.bg_color, '--sec': t.secondary_bg_color, '--text': t.text_color, '--hint': t.hint_color, '--btn': t.button_color, '--btn-text': t.button_text_color, '--link': t.link_color };
     Object.keys(map).forEach(function (k) { if (map[k]) document.documentElement.style.setProperty(k, map[k]); });
+    if (tg.colorScheme === 'dark') {
+      document.documentElement.style.setProperty('--ok', '#5fd38a');
+      document.documentElement.style.setProperty('--special', '#f0a04b');
+      document.documentElement.style.setProperty('--danger', '#ff6b6b');
+    }
   }
 
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var S = null;
-  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, edit: false, draft: null, groups: null, approve: {}, paynow: null };
+  var ui = { tab: null, sel: null, y: null, m: null, sheet: null, diff: '', unsel: {}, toast: null, undo: null, saving: false, loadError: null, edit: false, editing: false, openMonths: {}, draft: null, groups: null, approve: {}, paynow: null };
   var toastTimer = null;
 
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -189,9 +199,6 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   function classesView() {
     var byDate = {};
     S.admin.classes.forEach(function (c) { byDate[c.date] = c; });
-    var alerts = S.admin.classes.filter(function (c) { return c.date >= S.today && !c.cancelled && c.coming < S.admin.lowCount && S.admin.people.length; }).slice(0, 3).map(function (c) {
-      return '<button class="alert" data-act="jump" data-arg="' + c.date + '"><strong>' + lab(c.date) + ': only ' + c.coming + ' coming.</strong> Tap to view or cancel.</button>';
-    }).join('');
     var first = new Date(ui.y, ui.m, 1), blanks = (first.getDay() + 6) % 7, count = new Date(ui.y, ui.m + 1, 0).getDate(), cells = '';
     for (var i = 0; i < blanks; i++) cells += '<button class="day" disabled aria-hidden="true"></button>';
     for (var day = 1; day <= count; day++) {
@@ -200,23 +207,38 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       var kind = c ? (c.cancelled ? 'cancelled' : c.special ? 'special class' : 'class') : 'no class';
       cells += '<button class="day ' + cls + (s === S.today ? ' today' : '') + (s === ui.sel ? ' sel' : '') + '" aria-label="' + lab(s) + ', ' + kind + '" data-act="pick" data-arg="' + s + '">' + day + '</button>';
     }
-    return '<h1>Classes</h1>' + alerts +
+    return '<h1>Classes</h1>' +
       '<section class="card"><div class="calhead"><button class="icon" aria-label="Previous month" data-act="calMonth" data-arg="-1">&#8249;</button><strong>' + MONTH[ui.m] + ' ' + ui.y + '</strong><button class="icon" aria-label="Next month" data-act="calMonth" data-arg="1">&#8250;</button></div>' +
       '<div class="week"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div><div class="cal">' + cells + '</div>' +
       '<div class="legend"><span><i style="background:var(--btn)"></i>Class</span><span><i style="background:var(--special)"></i>Special class</span><span><i style="background:#d8dadf"></i>Cancelled</span></div>' +
       '<div class="hint">Mondays are added for you. Tap any date to change it.</div></section>' + selectedView(byDate);
   }
+  var PENCIL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>';
   function draftFor(s, c) {
     if (ui.draft && ui.draft.date === s) return ui.draft;
     var base = c || S.admin.defaults;
     ui.draft = { date: s, start: base.start, end: base.end, location: base.location, special: !!(c && c.special), statuses: {}, notify: true };
     return ui.draft;
   }
+  function currentClass() {
+    return S.admin.classes.filter(function (c) { return c.date === ui.sel; })[0] || null;
+  }
+  function canSave() {
+    var f = ui.draft, c = currentClass();
+    if (!f || !f.start || !f.end || !String(f.location || '').trim()) return false;
+    if (!c) return true;
+    if (f.start !== c.start || f.end !== c.end || String(f.location).trim() !== c.location || f.special !== c.special) return true;
+    return c.everyone.some(function (p) { return f.statuses[p.id] && f.statuses[p.id] !== p.status; });
+  }
+  function refreshSave() {
+    var b = document.getElementById('savebtn');
+    if (b) b.disabled = !canSave();
+  }
   function classFields(f) {
     return '<div class="times"><label class="field">Starts<input type="time" value="' + esc(f.start) + '" data-draft="start"></label><label class="field">Ends<input type="time" value="' + esc(f.end) + '" data-draft="end"></label></div>' +
       '<label class="field">Location<input type="text" value="' + esc(f.location) + '" data-draft="location"></label>' +
-      '<label class="check"><input type="checkbox" data-draftcheck="special"' + (f.special ? ' checked' : '') + '><span>Special class (external teacher). Cannot be offset once paid.</span></label>' +
-      '<label class="check"><input type="checkbox" data-draftcheck="notify"' + (f.notify ? ' checked' : '') + '><span>Tell the group chat if the time or place is new or changed</span></label>';
+      '<label class="check"><input type="checkbox" data-draftcheck="special"' + (f.special ? ' checked' : '') + '><span>Special class. Cannot be offset once paid.</span></label>' +
+      '<label class="check"><input type="checkbox" data-draftcheck="notify"' + (f.notify ? ' checked' : '') + '><span>Inform group of changes</span></label>';
   }
   function selectedView(byDate) {
     var s = ui.sel;
@@ -229,18 +251,22 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       h += '<div class="hint">No class on this date yet. Add one below.</div>' + classFields(draftFor(s, null)) + '<button class="primary" data-act="addClass">Add class</button>';
     } else if (c.cancelled) {
       h += '<div class="hint">Nobody is charged for this class.</div><button class="outline" data-act="restoreClass">Bring this class back</button>';
+    } else if (ui.editing) {
+      h += classFields(draftFor(s, c)) + '<button class="primary" id="savebtn" data-act="saveClass"' + (canSave() ? '' : ' disabled') + '>Save changes</button><button class="plain" data-act="stopEditing">Discard changes</button>';
     } else {
-      var f = draftFor(s, c);
+      h += '<div class="infoline"><span>' + esc(whenWhere(c)) + '</span><button class="pencil" aria-label="Edit time and location" data-act="editClass">' + PENCIL + '</button></div>';
       h += '<div class="big">' + c.coming + ' <span>coming</span></div>';
       if (c.late.length) h += '<div><strong>Late:</strong> ' + esc(c.late.join(', ')) + '</div>';
-      h += '<div><strong>Absent:</strong> ' + esc(c.absent.length ? c.absent.join(', ') : 'Nobody') + '</div>' +
-        '<button class="plain" data-act="postHeadcount">Post headcount to group</button>' + classFields(f) +
-        '<button class="plain" data-act="toggleEdit">' + (ui.edit ? 'Hide people' : 'Change someone\'s status') + '</button>';
-      if (ui.edit) h += c.everyone.map(function (p) {
-        var cur = f.statuses[p.id] || p.status;
-        return '<div class="row"><span>' + esc(p.name) + '</span><select aria-label="' + esc(p.name) + ' status" data-change="statusFor" data-arg="' + esc(p.id) + '">' + ['coming', 'late', 'absent'].map(function (o) { return '<option value="' + o + '"' + (cur === o ? ' selected' : '') + '>' + o[0].toUpperCase() + o.slice(1) + '</option>'; }).join('') + '</select></div>';
-      }).join('');
-      h += '<button class="primary" data-act="saveClass">Save changes</button><button class="danger" data-act="cancelClass">Cancel this class</button>';
+      h += '<div><strong>Absent:</strong> ' + esc(c.absent.length ? c.absent.join(', ') : 'Nobody') + '</div>';
+      if (ui.edit) {
+        var f = draftFor(s, c);
+        h += c.everyone.map(function (p) {
+          var cur = f.statuses[p.id] || p.status;
+          return '<div class="row"><span>' + esc(p.name) + '</span><select aria-label="' + esc(p.name) + ' status" data-change="statusFor" data-arg="' + esc(p.id) + '">' + ['coming', 'late', 'absent'].map(function (o) { return '<option value="' + o + '"' + (cur === o ? ' selected' : '') + '>' + o[0].toUpperCase() + o.slice(1) + '</option>'; }).join('') + '</select></div>';
+        }).join('') + '<button class="primary" id="savebtn" data-act="saveClass"' + (canSave() ? '' : ' disabled') + '>Save changes</button><button class="plain" data-act="stopEditing">Discard changes</button>';
+      } else {
+        h += '<button class="outline" data-act="toggleEdit">Change someone\'s status</button><button class="danger" data-act="cancelClass">Cancel this class</button>';
+      }
     }
     return h + '</section>';
   }
@@ -340,11 +366,16 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       groups[m].push(c);
     });
     if (!order.length) return '<section class="card"><div class="hint">No upcoming classes yet.</div></section>';
-    return (usual ? '<div class="usual">Usually ' + esc(usual) + '</div>' : '') + order.slice(0, 3).map(function (m) {
-      return '<h2 class="month">' + monthOf(m) + (m < S.startMonth ? ' <small>already paid</small>' : '') + '</h2><section class="card list">' + groups[m].map(function (c) {
+    var CHEVRON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>';
+    return (usual ? '<div class="usual">Usually ' + esc(usual) + '</div>' : '') + order.map(function (m, i) {
+      var open = ui.openMonths[m] === undefined ? i === 0 : ui.openMonths[m];
+      var n = groups[m].length;
+      var head = '<button class="month" aria-expanded="' + open + '" data-act="toggleMonth" data-arg="' + m + '|' + open + '">' + monthOf(m) + (m < S.startMonth ? ' <small>already paid</small>' : '') + '<span class="count">' + n + (n === 1 ? ' class' : ' classes') + '</span>' + CHEVRON + '</button>';
+      if (!open) return head;
+      return head + '<section class="card list">' + groups[m].map(function (c) {
         var hint = '', w = whenWhere(c);
         if (c.status === 'absent') hint = c.paid && c.special ? 'Special class: already paid, so this cannot be offset.' : c.paid ? '$' + S.training + ' comes off your next payment.' : 'You only pay the $' + S.rent + ' rent for this class.';
-        else if (c.special) hint = 'External teacher. Cannot be offset once paid.';
+        else if (c.special) hint = 'Cannot be offset once paid.';
         return '<div class="cl"><div><span class="day-name">' + lab(c.date) + '</span>' + (w !== usual ? '<span class="when">' + esc(w) + '</span>' : '') + (c.special ? '<br><span class="tag special">Special</span>' : '') + '</div><div class="seg">' +
           [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (c.status === o[0] ? ' on' : '') + '" aria-label="' + lab(c.date) + ': ' + o[1] + '" aria-pressed="' + (c.status === o[0]) + '" data-act="status" data-arg="' + c.date + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' +
           (c.status === 'late' ? '<input class="wide" type="text" aria-label="Arrival time or note" placeholder="e.g. ETA 8.30pm" value="' + esc(c.note) + '" data-note="' + c.date + '">' : '') +
@@ -362,7 +393,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     var h = '<h1>My payment</h1><section class="card"><div class="hint">' + monthOf(S.month) + ', due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong>' + linesHtml(r.lines);
     if (r.state !== 'none' && r.after) h += '<div class="note">' + esc(carryText(r.after, S.month)) + '</div>';
     h += '</section>';
-    if (r.state === 'none') h += '<section class="card"><div>' + (S.paynow ? 'PayNow to <strong>' + esc(S.paynow) + '</strong>, with your name in the reference.' : 'Pay your teacher, with your name in the reference.') + '</div><button class="primary" data-act="claim">I\'ve paid</button></section>';
+    if (r.state === 'none') h += '<section class="card"><div>' + (S.paynow ? 'PayNow to <strong>' + esc(S.paynow) + '</strong>. ' : '') + 'Click if transferred.</div><button class="primary" data-act="claim">I\'ve paid</button></section>';
     if (r.state === 'claimed') h += '<button class="plain" data-act="unclaim">I tapped this by mistake</button>';
     return h;
   }
@@ -400,9 +431,11 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     reload: function () { ui.loadError = null; call('state'); },
     tab: function (a) { ui.tab = a; window.scrollTo(0, 0); render(); },
     meView: function (a) { ui.meView = a; window.scrollTo(0, 0); render(); },
-    pick: function (a) { ui.sel = a; ui.edit = false; ui.draft = null; render(); },
-    jump: function (a) { var d = dt(a); ui.sel = a; ui.draft = null; ui.y = d.getFullYear(); ui.m = d.getMonth(); render(); },
-    calMonth: function (a) { var d = new Date(ui.y, ui.m + Number(a), 1); ui.y = d.getFullYear(); ui.m = d.getMonth(); ui.sel = null; render(); },
+    pick: function (a) { ui.sel = a; ui.edit = false; ui.editing = false; ui.draft = null; render(); },
+    toggleMonth: function (a) { var p = a.split('|'); ui.openMonths[p[0]] = p[1] !== 'true'; render(); },
+    editClass: function () { ui.editing = true; ui.draft = null; render(); },
+    stopEditing: function () { ui.editing = false; ui.edit = false; ui.draft = null; render(); },
+    calMonth: function (a) { var d = new Date(ui.y, ui.m + Number(a), 1); ui.y = d.getFullYear(); ui.m = d.getMonth(); ui.sel = null; ui.edit = false; ui.editing = false; ui.draft = null; render(); },
     payMonth: function (a) { var m = addMonth(S.month, Number(a)); if (m < S.startMonth) return; ui.month = m; call('state'); },
     addClass: function () {
       var f = ui.draft;
@@ -410,8 +443,9 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     },
     saveClass: function () {
       var f = ui.draft;
+      if (!canSave()) return;
       var statuses = Object.keys(f.statuses).map(function (id) { return { id: id, status: f.statuses[id] }; });
-      call('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, special: f.special, statuses: statuses, notify: f.notify }, function () { ui.draft = null; toast('Saved.'); });
+      call('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, special: f.special, statuses: statuses, notify: !!ui.editing && f.notify }, function () { ui.draft = null; ui.editing = false; ui.edit = false; toast('Saved.'); });
     },
     restoreClass: function () { ui.draft = null; call('saveClass', { date: ui.sel, cancelled: false }); },
     cancelClass: function () {
@@ -419,8 +453,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       ui.draft = null;
       call('saveClass', { date: day, cancelled: true, notify: true }, function () { toast('Class cancelled.', { action: 'saveClass', payload: { date: day, cancelled: false } }); });
     },
-    toggleEdit: function () { ui.edit = !ui.edit; render(); },
-    postHeadcount: function () { call('postHeadcount', { date: ui.sel }, function () { toast('Posted to the group.'); }); },
+    toggleEdit: function () { ui.edit = true; ui.draft = null; render(); },
     open: function (a) { ui.sheet = a; ui.diff = ''; ui.toast = null; render(); },
     closeSheet: function () { ui.sheet = null; render(); },
     confirm: function (a) { call('confirm', { id: a }, function () { toast('Confirmed.'); }); },
@@ -476,9 +509,9 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   document.addEventListener('change', function (e) {
     var k = e.target.getAttribute('data-change');
     var dc = e.target.getAttribute('data-draftcheck');
-    if (dc && ui.draft) ui.draft[dc] = e.target.checked;
+    if (dc && ui.draft) { ui.draft[dc] = e.target.checked; refreshSave(); }
     if (k === 'unsel') { ui.unsel[e.target.getAttribute('data-arg')] = !e.target.checked; render(); }
-    if (k === 'statusFor' && ui.draft) ui.draft.statuses[e.target.getAttribute('data-arg')] = e.target.value;
+    if (k === 'statusFor' && ui.draft) { ui.draft.statuses[e.target.getAttribute('data-arg')] = e.target.value; refreshSave(); }
     if (k === 'approveKind') ui.approve[e.target.getAttribute('data-arg')].kind = e.target.value;
     var note = e.target.getAttribute('data-note');
     if (note) call('setStatus', { date: note, status: 'late', note: e.target.value });
@@ -486,7 +519,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   document.addEventListener('input', function (e) {
     var k = e.target.getAttribute('data-input');
     var dk = e.target.getAttribute('data-draft');
-    if (dk && ui.draft) ui.draft[dk] = e.target.value;
+    if (dk && ui.draft) { ui.draft[dk] = e.target.value; refreshSave(); }
     if (k === 'diff') { ui.diff = e.target.value; document.getElementById('diffnote').textContent = diffNote().replace(/&amp;/g, '&'); }
     if (k === 'paynow') ui.paynow = e.target.value;
     if (k === 'approveName') ui.approve[e.target.getAttribute('data-arg')].name = e.target.value;
