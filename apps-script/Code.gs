@@ -47,7 +47,8 @@ function setup() {
   ScriptApp.getProjectTriggers().forEach((t) => {
     if (t.getHandlerFunction() === 'tick') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('tick').timeBased().everyHours(1).create();
+  // Twice a day: the payment reminder goes out in the morning and the headcount in the evening.
+  [10, 18].forEach((h) => ScriptApp.newTrigger('tick').timeBased().atHour(h).everyDays(1).inTimezone(TZ).create());
 }
 
 // ---------- storage ----------
@@ -540,7 +541,7 @@ function fetchGroups() {
   return Object.keys(seen).map((id) => ({ id, title: seen[id] }));
 }
 
-// ---------- hourly automatic messages ----------
+// ---------- automatic messages, run twice a day ----------
 function tick() {
   const cfg = config();
   if (!cfg.GROUP_CHAT_ID) return;
