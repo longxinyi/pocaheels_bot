@@ -49,8 +49,8 @@ button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .card{background:var(--bg);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .foldcard{padding:8px 16px 16px}
 .foldcard.closed{padding-bottom:8px}
-.foldcard .fold{padding:4px 0;border-radius:0;background:transparent;font-family:var(--display);font-style:italic;font-size:23px;font-weight:600}
-.foldcard .fold .count{font-family:var(--body);font-style:normal}
+.foldcard>.fold:first-child{padding:4px 0;border-radius:0;background:transparent;font-family:var(--display);font-style:italic;font-size:23px;font-weight:600}
+.foldcard>.fold:first-child .count{font-family:var(--body);font-style:normal}
 .hint{font-size:14px;color:var(--hint)}
 .pad{padding:0 4px;text-align:center}
 .primary,.outline,.danger,.plain{min-height:44px;border:0;border-radius:999px;font-weight:700;width:100%;padding:0 18px}
@@ -580,7 +580,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
         return '<div class="row"><button class="rowbtn" data-act="open" data-arg="' + esc(r.id) + '"><span>' + esc(r.name) + '</span><span class="okline">' + esc(note) + '</span></button></div>';
       }).join('');
     });
-    return h + '<button class="plain" data-act="viewSheet">View sheet</button>';
+    return h;
   }
   function linesHtml(lines) {
     return lines.map(function (l) { return '<div class="line"><span>' + esc(l.l) + '</span><b>' + esc(l.v) + '</b></div>'; }).join('');
@@ -666,7 +666,9 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       var label = p.role === 'admin' ? (p.pays ? ' (admin)' : ' (teacher)') : '';
       return '<div class="row team"><span>' + esc(p.name + label) + '</span><button class="text-link" data-act="history" data-arg="' + esc(p.id) + '">View history</button><button class="text-danger" data-act="removePerson" data-arg="' + esc(p.id) + '">Remove</button></div>';
     }).join('') + '<div class="hint">New people appear above after they open the app once.</div></section>';
-    h += '<section class="card foldcard' + (isOpen('group') ? '' : ' closed') + '">' + foldHead('group', 'Group chat', a.group.id ? (a.group.title || 'Connected') : 'Not connected');
+    h += '<section class="card foldcard' + (isOpen('settings') ? '' : ' closed') + '">' + foldHead('settings', 'Settings', '');
+    if (!isOpen('settings')) return h + '</section>';
+    h += foldHead('group', 'Group chat', a.group.id ? (a.group.title || 'Connected') : 'Not connected');
     if (isOpen('group')) {
       if (a.group.id) {
         h += '<div class="linked"><div>Connected to <strong>' + esc(a.group.title || 'your group') + '</strong></div><button class="text-danger" data-act="clearGroup">' + (ui.confirmGroup ? 'Tap again to remove' : 'Remove') + '</button></div>';
@@ -686,12 +688,10 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
         }).join('') : '<div class="hint">No group found yet. Remove the bot from the group, add it again, then tap Find my group.</div>';
       }
     }
-    h += '</section>';
     var pn = ui.paynow === null ? S.paynow : ui.paynow;
-    h += '<section class="card foldcard' + (isOpen('paynow') ? '' : ' closed') + '">' + foldHead('paynow', 'PayNow number', S.paynow || 'Not set');
+    h += foldHead('paynow', 'PayNow number', S.paynow || 'Not set');
     if (isOpen('paynow')) h += '<div class="inline"><input id="paynow" type="text" aria-label="PayNow number" placeholder="Shown to members" value="' + esc(pn) + '" data-input="paynow"><button class="outline" data-act="savePaynow">Save</button></div>';
-    h += '</section>';
-    return h;
+    return h + '<button class="plain" data-act="viewSheet">View sheet</button></section>';
   }
 
   // ---------- member ----------
