@@ -565,13 +565,13 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     }).join('');
   }
   function myClassesView() {
-    return '<h1>My classes</h1><div class="hint pad">You\'re marked as coming unless you change it.</div>' + myClassesCards();
+    return '<h1>Classes</h1><div class="hint pad">You\'re marked as coming unless you change it.</div>' + myClassesCards();
   }
   function myPaymentView() {
     var r = S.myPayment;
     var amt = r.state === 'claimed' || r.state === 'paid' ? r.paid : r.toPay;
     var status = r.state === 'paid' ? 'Paid and confirmed' : r.state === 'claimed' ? 'Waiting for your teacher to confirm' : r.state === 'nothing' ? 'Nothing to pay this month' : 'Not paid yet';
-    var h = '<h1>My payment</h1><section class="card"><div class="hint">' + monthOf(S.month) + ', due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong>' + linesHtml(r.lines);
+    var h = '<h1>Payment</h1><section class="card"><div class="hint">' + monthOf(S.month) + ', due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong>' + linesHtml(r.lines);
     if (r.state !== 'none' && r.after) h += '<div class="note">' + esc(carryText(r.after, S.month)) + '</div>';
     h += '</section>';
     if (r.state === 'none') h += '<section class="card"><div>' + (S.paynow ? 'PayNow to <strong>' + esc(S.paynow) + '</strong>. ' : '') + 'Click if transferred.</div><button class="primary" data-act="claim">I\'ve paid</button></section>';
@@ -598,7 +598,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       var tabs = [];
       if (S.admin) tabs = [['classes', 'Calendar'], ['payments', 'Payments'], ['people', 'People']];
       if (S.admin) { if (S.me.pays) tabs.push(['me', 'Me']); }
-      else { tabs.push(['classes', 'Calendar']); tabs.push(['myclasses', 'My classes']); if (S.myPayment) tabs.push(['mypay', 'My payment']); }
+      else { tabs.push(['classes', 'Calendar']); tabs.push(['myclasses', 'Classes']); if (S.myPayment) tabs.push(['mypay', 'Payment']); }
       var view = ui.tab === 'classes' ? classesView() : ui.tab === 'payments' ? paymentsView() : ui.tab === 'people' ? peopleView() : ui.tab === 'me' ? meView() : ui.tab === 'mypay' ? myPaymentView() : myClassesView();
       html = '<main>' + view + '</main><nav>' + tabs.map(function (n) { return '<button class="' + (ui.tab === n[0] ? 'on' : '') + '" data-act="tab" data-arg="' + n[0] + '">' + n[1] + '</button>'; }).join('') + '</nav>' + sheetView();
     }

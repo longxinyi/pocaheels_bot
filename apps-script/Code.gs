@@ -631,7 +631,7 @@ const ADMIN_ACTIONS = {
   setGroup(me, p) {
     setConfig('GROUP_CHAT_ID', String(p.id));
     setConfig('GROUP_TITLE', String(p.title || ''));
-    sendToGroup('hello~ this is poca heels crew bot! i will be everyone\'s secretary, in charge of payment and scheduling. open the <a href="' + MINI_APP_LINK + '">miniapp</a> to see what i can do (you might have to request for permission) happy dancing 🕺🏻🪩');
+    sendToGroup('hello~ this is poca heels crew bot! i will be everyone\'s secretary, in charge of payment and scheduling. open the <a href="' + MINI_APP_LINK + '">miniapp</a> to see what i can do 🕺🏻🪩');
   },
 };
 
