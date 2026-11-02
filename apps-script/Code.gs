@@ -290,7 +290,19 @@ function buildLedger(data, cfg) {
       paid, after: before + paid - thisMonth,
     };
   }
-  return { summary };
+  /** One entry per month, newest first: what they owed, why, and what they paid. */
+  function history(person, current) {
+    const last = data.payments.reduce((a, p) => (p.person_id === person.id && p.month > a ? p.month : a), current);
+    const joined = String(person.joined || '').slice(0, 7);
+    const first = joined > cfg.START_MONTH ? joined : cfg.START_MONTH;
+    const out = [];
+    for (let m = last; m >= first; m = addMonths(m, -1)) {
+      const r = summary(person, m);
+      out.push({ month: m, lines: r.lines, toPay: r.toPay, state: r.state, paid: r.paid, after: r.after });
+    }
+    return out;
+  }
+  return { summary, history };
 }
 function loadData() {
   return {
@@ -368,10 +380,10 @@ function stateFor(me, month) {
         };
       }),
       payments: people.map((p) => led.summary(p, pm)),
-      people: data.people.filter((p) => p.role === 'member' || p.role === 'admin').map((p) => ({ id: p.id, name: p.name, role: p.role, pays: p.pays === 'yes' })),
+      people: data.people.filter((p) => p.role === 'member' || p.role === 'admin').map((p) => ({ id: p.id, name: p.name, role: p.role, pays: p.pays === 'yes', history: p.pays === 'yes' ? led.history(p, out.paymentMonth) : [] })),
       pending: data.people.filter((p) => p.role === 'pending').map((p) => ({ id: p.id, tgName: p.tg_name, username: p.username })),
       group: { id: cfg.GROUP_CHAT_ID, title: cfg.GROUP_TITLE, topics: { payments: cfg.TOPIC_PAYMENTS ? (cfg.TOPIC_PAYMENTS_NAME || 'Saved topic') : '', hangouts: cfg.TOPIC_HANGOUTS ? (cfg.TOPIC_HANGOUTS_NAME || 'Saved topic') : '' } },
-      sheetUrl: 'https://docs.google.com/spreadsheets/d/' + bookOrActive().getId() + '/export?format=xlsx',
+      sheetUrl: 'https://docs.google.com/spreadsheets/d/' + bookOrActive().getId() + '/edit',
     };
   }
   return out;
@@ -629,9 +641,13 @@ const ADMIN_ACTIONS = {
     setConfig(key + '_NAME', created ? created.name : '');
   },
   setGroup(me, p) {
+    if (config().GROUP_CHAT_ID) throw new Error('Remove the current group first');
     setConfig('GROUP_CHAT_ID', String(p.id));
     setConfig('GROUP_TITLE', String(p.title || ''));
     sendToGroup('hello~ this is poca heels crew bot! i will be everyone\'s secretary, in charge of payment and scheduling.\nopen the <a href="' + MINI_APP_LINK + '">miniapp</a> to see what i can do 🕺🏻🪩');
+  },
+  clearGroup() {
+    ['GROUP_CHAT_ID', 'GROUP_TITLE', 'TOPIC_PAYMENTS', 'TOPIC_PAYMENTS_NAME', 'TOPIC_HANGOUTS', 'TOPIC_HANGOUTS_NAME'].forEach((k) => setConfig(k, ''));
   },
 };
 
