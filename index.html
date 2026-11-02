@@ -86,7 +86,7 @@ button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .tag.hangout{color:var(--hang)}
 .tag.cancelled{color:var(--hint)}
 .spin{display:inline-block;width:16px;height:16px;margin-right:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-3px;animation:spin .7s linear infinite}
-.seg .spin{margin-right:0}
+.seg .spin,.icon .spin,.pencil .spin{margin:0}
 .busy{cursor:default}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}.fold svg,.month svg{transition:none}}
@@ -255,14 +255,17 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     var i = busy.indexOf(k);
     if (i >= 0) busy.splice(i, 1);
   }
+  // Says what is actually happening. Anything not listed is saving something.
+  var BUSY_WORD = { reload: 'Loading...', findGroups: 'Looking...', remind: 'Sending...', removePerson: 'Removing...', clearGroup: 'Removing...', clearTopic: 'Removing...' };
+  var READS = { state: true, findGroups: true };
   function showBusy() {
     busy.forEach(function (k) {
       [].forEach.call(document.querySelectorAll('[data-act]'), function (el) {
         if (el.getAttribute('data-act') !== k.act || el.getAttribute('data-arg') !== k.arg) return;
-        var inSeg = !!el.closest('.seg');
+        var iconOnly = !!el.closest('.seg') || el.classList.contains('icon') || el.classList.contains('pencil');
         el.classList.add('busy');
         el.disabled = true;
-        el.innerHTML = '<span class="spin" aria-hidden="true"></span>' + (inSeg ? '' : 'Saving...');
+        el.innerHTML = '<span class="spin" aria-hidden="true"></span>' + (iconOnly ? '' : (BUSY_WORD[k.act] || 'Saving...'));
       });
     });
   }
@@ -303,13 +306,15 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
   }
   function call(action, payload, done) {
     if (!tg || !tg.initData) { ui.loadError = 'Please open this from the Telegram bot.'; render(); return; }
-    var key = markBusy();
-    ui.saving = true; render();
+    var key = markBusy(), isRead = READS[action];
+    if (!isRead) ui.saving = true;
+    render();
     post(action, payload)
       .then(function (res) {
         inflight--;
         clearBusy(key);
-        ui.saving = false; ui.loadError = null;
+        if (!isRead) ui.saving = false;
+        ui.loadError = null;
         if (res.error) {
           if (!S) ui.loadError = res.error; else toast(res.error);
           render();
@@ -323,9 +328,9 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       .catch(function () {
         inflight--;
         clearBusy(key);
-        ui.saving = false;
+        if (!isRead) ui.saving = false;
         if (!S) ui.loadError = 'Could not connect. Please check your internet and try again.';
-        else toast('That did not save. Please try again.');
+        else toast(isRead ? 'Could not load that. Please check your internet and try again.' : 'That did not save. Please try again.');
         render();
       });
   }
