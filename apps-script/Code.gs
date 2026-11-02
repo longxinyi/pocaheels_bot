@@ -7,7 +7,7 @@
 const TZ = 'Asia/Singapore';
 const TABLES = {
   People: ['id', 'name', 'username', 'tg_name', 'role', 'pays', 'joined', 'left'],
-  Classes: ['date', 'special', 'cancelled', 'start', 'end', 'location'],
+  Classes: ['date', 'special', 'cancelled', 'start', 'end', 'location', 'kind', 'title'],
   Status: ['date', 'person_id', 'status', 'note', 'marked_at'],
   Payments: ['month', 'person_id', 'state', 'amount', 'at', 'by'],
   Config: ['key', 'value'],
@@ -28,6 +28,10 @@ const DEFAULTS = {
   GENERATED_THROUGH: '',
 };
 const MONTHS_AHEAD = 6;
+const KINDS = { paid: 'Training', free: 'Free training', performance: 'Performance', hangout: 'Crew hangout' };
+function isPaid(c) { return !c.kind || c.kind === 'paid'; }
+function isTraining(c) { return isPaid(c) || c.kind === 'free'; }
+function itemName(c) { return c.title || KINDS[c.kind || 'paid']; }
 
 // ---------- setup, run once by hand ----------
 function setup() {
@@ -139,7 +143,7 @@ function ensureMondays() {
     const n = lastDay(m);
     for (let i = 1; i <= n; i++) {
       const s = m + '-' + pad(i);
-      if (s > t && dateOf(s).getUTCDay() === 1 && !known[s]) classes.push({ date: s, special: '', cancelled: '', start: cfg.DEFAULT_START, end: cfg.DEFAULT_END, location: cfg.DEFAULT_LOCATION });
+      if (s > t && dateOf(s).getUTCDay() === 1 && !known[s]) classes.push({ date: s, special: '', cancelled: '', start: cfg.DEFAULT_START, end: cfg.DEFAULT_END, location: cfg.DEFAULT_LOCATION, kind: 'paid', title: '' });
     }
   }
   classes.sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -174,7 +178,8 @@ function verifyInitData(initData) {
  * - Each class costs RENT + TRAINING. An absence costs RENT only, so an absence marked after paying
  *   automatically leaves TRAINING as credit for the next payment.
  * - A special class marked absent after paying stays at the full price, so there is no offset.
- * - A cancelled class costs nothing.
+ * - A cancelled class costs nothing, and so does anything that isn't paid training: free training,
+ *   performances and crew hangouts never affect what anyone owes.
  * - Months before START_MONTH were paid outside this app: they cost nothing, and an absence there
  *   gives TRAINING back as credit.
  */
@@ -189,7 +194,7 @@ function buildLedger(data, cfg) {
     const month = c.date.slice(0, 7);
     const s = statusBy[person.id + '|' + c.date];
     const absent = s && s.status === 'absent';
-    if (c.cancelled) return 0;
+    if (c.cancelled || !isPaid(c)) return 0;
     if (month < cfg.START_MONTH) return absent && !c.special ? -training : 0;
     if (!absent) return full;
     const p = payBy[person.id + '|' + month];
@@ -208,7 +213,7 @@ function buildLedger(data, cfg) {
       if (m < month) {
         before -= amt;
         const s = statusBy[person.id + '|' + c.date];
-        if (m === prev && s && s.status === 'absent' && !c.cancelled && !c.special && c.date >= person.joined) {
+        if (m === prev && s && s.status === 'absent' && !c.cancelled && isPaid(c) && !c.special && c.date >= person.joined) {
           const p = payBy[person.id + '|' + prev];
           if (prev < cfg.START_MONTH || (p && s.marked_at > p.at)) offsets.push(c.date);
         }
@@ -268,12 +273,23 @@ function stateFor(me, month) {
   };
   const mine = {};
   data.status.forEach((s) => { if (s.person_id === me.id) mine[s.date] = s; });
+  const everyone = billable(data.people);
+  function counts(c) {
+    const active = everyone.filter((p) => c.date >= p.joined && !(p.left && c.date >= p.left));
+    const away = active.filter((p) => data.status.some((s) => s.date === c.date && s.person_id === p.id && s.status === 'absent'));
+    return { coming: active.length - away.length, total: active.length };
+  }
   out.myClasses = data.classes.filter((c) => !c.cancelled && c.date >= t).map((c) => ({
-    date: c.date, special: !!c.special, start: c.start, end: c.end, location: c.location,
+    date: c.date, special: !!c.special, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
     status: mine[c.date] ? mine[c.date].status : 'coming', note: mine[c.date] ? mine[c.date].note : '',
     paid: c.date.slice(0, 7) < cfg.START_MONTH || data.payments.some((p) => p.person_id === me.id && p.month === c.date.slice(0, 7)),
   }));
   if (me.pays === 'yes') out.myPayment = led.summary(me, pm);
+  if (me.role !== 'admin') {
+    out.calendar = data.classes.map((c) => Object.assign({
+      date: c.date, special: !!c.special, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
+    }, counts(c)));
+  }
   if (me.role === 'admin') {
     const people = billable(data.people);
     out.admin = {
@@ -285,8 +301,8 @@ function stateFor(me, month) {
         const absent = active.filter((p) => rows.some((s) => s.person_id === p.id && s.status === 'absent'));
         const late = active.filter((p) => rows.some((s) => s.person_id === p.id && s.status === 'late'));
         return {
-          date: c.date, special: !!c.special, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location,
-          coming: active.length - absent.length,
+          date: c.date, special: !!c.special, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
+          coming: active.length - absent.length, total: active.length,
           absent: absent.map((p) => p.name),
           late: late.map((p) => {
             const n = rows.find((s) => s.person_id === p.id).note;
@@ -407,17 +423,21 @@ const ADMIN_ACTIONS = {
       if (p[k] !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(p[k])) throw new Error('Please enter a valid time');
     });
     if (p.location !== undefined && !String(p.location).trim()) throw new Error('Please enter a location');
+    if (p.kind !== undefined && !KINDS[p.kind]) throw new Error('Unknown type');
     const cfg = config();
     const rows = readTable('Classes');
     let c = rows.find((x) => x.date === p.date);
     const isNew = !c;
-    if (isNew) { c = { date: p.date, special: '', cancelled: '', start: cfg.DEFAULT_START, end: cfg.DEFAULT_END, location: cfg.DEFAULT_LOCATION }; rows.push(c); }
+    if (isNew) { c = { date: p.date, special: '', cancelled: '', start: cfg.DEFAULT_START, end: cfg.DEFAULT_END, location: cfg.DEFAULT_LOCATION, kind: 'free', title: '' }; rows.push(c); }
     const before = whenWhere(c);
     if (p.special !== undefined) c.special = p.special ? 'yes' : '';
     if (p.cancelled !== undefined) c.cancelled = p.cancelled ? 'yes' : '';
     if (p.start !== undefined) c.start = p.start;
     if (p.end !== undefined) c.end = p.end;
     if (p.location !== undefined) c.location = String(p.location).trim().slice(0, 100);
+    if (p.kind !== undefined) c.kind = p.kind;
+    if (p.title !== undefined) c.title = String(p.title).trim().slice(0, 60);
+    if (!isPaid(c)) c.special = '';
     rows.sort((a, b) => (a.date < b.date ? -1 : 1));
     writeTable('Classes', rows);
     (p.statuses || []).forEach((u) => {
@@ -426,8 +446,8 @@ const ADMIN_ACTIONS = {
       upsertStatus(String(u.id), p.date, u.status, old ? old.note : '');
     });
     if (p.cancelled && p.notify) sendToGroup(esc(niceDate(p.date) + ': class is cancelled.'));
-    else if (p.notify && isNew) sendToGroup(esc('New class on ' + niceDate(p.date) + ': ' + whenWhere(c) + '.'));
-    else if (p.notify && before !== whenWhere(c)) sendToGroup(esc(niceDate(p.date) + ' class is now ' + whenWhere(c) + '.'));
+    else if (p.notify && isNew) sendToGroup(esc('New ' + (isTraining(c) ? 'class' : 'event') + ' on ' + niceDate(p.date) + ': ' + itemName(c) + ', ' + whenWhere(c) + '.'));
+    else if (p.notify && before !== whenWhere(c)) sendToGroup(esc(niceDate(p.date) + ' ' + itemName(c) + ' is now ' + whenWhere(c) + '.'));
   },
   confirm(me, p) {
     const row = readTable('Payments').find((r) => r.month === p.month && r.person_id === String(p.id));
@@ -525,7 +545,7 @@ function headcountText(date) {
     const n = rows.find((s) => s.person_id === p.id).note;
     return n ? p.name + ' (' + n + ')' : p.name;
   });
-  let t = '<b>' + niceDate(date) + ': ' + (people.length - absent.length) + ' coming</b>';
+  let t = '<b>' + niceDate(date) + ': ' + (people.length - absent.length) + '/' + people.length + ' coming</b>';
   if (cls && whenWhere(cls)) t += '\n' + esc(whenWhere(cls));
   if (late.length) t += '\nLate: ' + esc(late.join(', '));
   return t + '\nAbsent: ' + esc(absent.length ? absent.map((p) => p.name).join(', ') : 'nobody');
@@ -568,7 +588,7 @@ function tick() {
     const d = dateOf(t);
     d.setUTCDate(d.getUTCDate() + 1);
     const tomorrow = isoOf(d);
-    const c = readTable('Classes').find((x) => x.date === tomorrow && !x.cancelled);
+    const c = readTable('Classes').find((x) => x.date === tomorrow && !x.cancelled && isTraining(x));
     if (c) once('sent_count_' + tomorrow, () => sendToGroup(headcountText(tomorrow)));
   }
 }
