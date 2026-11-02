@@ -6,7 +6,7 @@
 <title>Poca Heels</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{--bg:#fff;--sec:#efeff3;--text:#111;--hint:#5f6368;--btn:#1f6fb2;--btn-text:#fff;--link:#1f6fb2;--line:rgba(127,127,127,.25);--danger:#c62828;--special:#b35900;--special-bg:rgba(179,89,0,.14);--ok:#1e6b2b;--info-bg:rgba(31,111,178,.12);--kind-p:#5a2fa5;--kind-h:#a81450}
+:root{--bg:#fff;--sec:#efeff3;--text:#111;--hint:#5f6368;--btn:#1f6fb2;--btn-text:#fff;--link:#1f6fb2;--line:rgba(127,127,127,.25);--danger:#c62828;--ok:#1e6b2b;--info-bg:rgba(31,111,178,.12);--kind-p:#5a2fa5;--kind-h:#a81450}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--sec);color:var(--text);font:16px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
 button,input,select{font:inherit;color:inherit}
@@ -32,7 +32,6 @@ h2{margin:0;font-size:16px}
 .day{height:44px;padding:0;border:2px solid transparent;border-radius:10px;background:transparent;font-size:15px;font-weight:600}
 .day:disabled{visibility:hidden}
 .day.class{background:var(--btn);color:var(--btn-text)}
-.day.special{background:#b35900;color:#fff}
 .day.free{background:#2e7d32;color:#fff}
 .day.performance{background:#6a3fb5;color:#fff}
 .day.hangout{background:#c2185b;color:#fff}
@@ -44,7 +43,6 @@ h2{margin:0;font-size:16px}
 .titlerow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .titlerow h2{font-size:18px}
 .tag{font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px}
-.tag.special{background:var(--special-bg);color:var(--special)}
 .tag.free{background:rgba(46,125,50,.16);color:var(--ok)}
 .tag.performance{background:rgba(106,63,181,.18);color:var(--kind-p)}
 .tag.hangout{background:rgba(194,24,91,.16);color:var(--kind-h)}
@@ -95,9 +93,9 @@ input[type=text],input[type=number],select{font-weight:400;width:100%;min-height
 .usual{display:flex;gap:6px;font-size:14px;color:var(--hint);padding:0 4px}
 .month small{font-size:14px;font-weight:600;color:var(--ok)}
 .when{font-size:14px;color:var(--hint)}
-.field{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
+.field{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600;min-width:0}
 .times{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-input[type=time]{width:100%;min-height:48px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font-weight:400}
+input[type=time]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;text-align:left;width:100%;min-height:48px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font-weight:400}
 .amount{font-size:38px;font-weight:700;line-height:1}
 .line{display:flex;justify-content:space-between;gap:12px;padding-top:8px;border-top:1px solid var(--line);font-size:15px}
 .line b{white-space:nowrap}
@@ -133,7 +131,6 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     Object.keys(map).forEach(function (k) { if (map[k]) document.documentElement.style.setProperty(k, map[k]); });
     if (tg.colorScheme === 'dark') {
       document.documentElement.style.setProperty('--ok', '#5fd38a');
-      document.documentElement.style.setProperty('--special', '#f0a04b');
       document.documentElement.style.setProperty('--danger', '#ff6b6b');
       document.documentElement.style.setProperty('--kind-p', '#c4a7ff');
       document.documentElement.style.setProperty('--kind-h', '#ff8ab5');
@@ -168,7 +165,6 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   var KIND = { paid: 'Training', free: 'Extra', performance: 'Performance', hangout: 'Hangout' };
   function itemTag(c) {
     if (c.cancelled) return '<span class="tag cancelled">Cancelled</span>';
-    if (c.special) return '<span class="tag special">Special</span>';
     if (c.kind && c.kind !== 'paid') return '<span class="tag ' + esc(c.kind) + '">' + esc(KIND[c.kind] || '') + '</span>';
     return '';
   }
@@ -179,30 +175,63 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { ui.toast = null; ui.undo = null; render(); }, 6000);
   }
+  // Saves run one after another so they can't overwrite each other.
+  var chain = Promise.resolve(), inflight = 0;
+  function post(action, payload) {
+    inflight++;
+    var body = JSON.stringify({ initData: tg.initData, action: action, payload: Object.assign({ month: ui.month }, payload || {}) });
+    var p = chain.then(function () {
+      return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body }).then(function (r) { return r.json(); });
+    });
+    chain = p.catch(function () {});
+    return p;
+  }
+  function softRender() {
+    var f = document.activeElement;
+    if (f && (f.tagName === 'INPUT' || f.tagName === 'SELECT')) return;
+    render();
+  }
   function call(action, payload, done) {
     if (!tg || !tg.initData) { ui.loadError = 'Please open this from the Telegram bot.'; render(); return; }
     ui.saving = true; render();
-    var body = Object.assign({ month: ui.month }, payload || {});
-    fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ initData: tg.initData, action: action, payload: body }) })
-      .then(function (r) { return r.json(); })
+    post(action, payload)
       .then(function (res) {
+        inflight--;
         ui.saving = false; ui.loadError = null;
         if (res.error) {
           if (!S) ui.loadError = res.error; else toast(res.error);
           render();
           return;
         }
-        S = res; ui.month = res.month;
+        if (inflight === 0) { S = res; ui.month = res.month; init(); }
         if (res.groups) ui.groups = res.groups;
-        init();
         if (done) done(res);
         render();
       })
       .catch(function () {
+        inflight--;
         ui.saving = false;
         if (!S) ui.loadError = 'Could not connect. Please check your internet and try again.';
         else toast('That did not save. Please try again.');
         render();
+      });
+  }
+  // Shows the change straight away and saves in the background. A failed save reloads the real data.
+  function quick(action, payload, apply) {
+    if (!tg || !tg.initData) return;
+    if (apply) apply();
+    render();
+    post(action, payload)
+      .then(function (res) {
+        inflight--;
+        if (res.error) { toast(res.error); call('state'); return; }
+        if (inflight === 0) { S = res; ui.month = res.month; init(); }
+        softRender();
+      })
+      .catch(function () {
+        inflight--;
+        toast('That did not save. Please try again.');
+        call('state');
       });
   }
   function init() {
@@ -225,8 +254,8 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     for (var i = 0; i < blanks; i++) cells += '<button class="day" disabled aria-hidden="true"></button>';
     for (var day = 1; day <= count; day++) {
       var s = iso(ui.y, ui.m, day), c = byDate[s];
-      var cls = c ? (c.cancelled ? 'cancelled' : c.special ? 'special' : c.kind === 'free' ? 'free' : c.kind === 'performance' ? 'performance' : c.kind === 'hangout' ? 'hangout' : 'class') : '';
-      var kind = c ? (c.cancelled ? 'cancelled' : c.special ? 'special class' : (KIND[c.kind] || 'class')) : (hgDates[s] ? 'hangout' : 'nothing on');
+      var cls = c ? (c.cancelled ? 'cancelled' : c.kind === 'free' ? 'free' : c.kind === 'performance' ? 'performance' : c.kind === 'hangout' ? 'hangout' : 'class') : '';
+      var kind = c ? (c.cancelled ? 'cancelled' : (KIND[c.kind] || 'class')) : (hgDates[s] ? 'hangout' : 'nothing on');
       if (!cls && hgDates[s]) cls = 'hangout';
       var dot = c && hgDates[s] ? '<span class="dot"></span>' : '';
       if (c && hgDates[s]) kind += ', hangout';
@@ -235,14 +264,14 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     return '<h1>Calendar</h1>' +
       '<section class="card"><div class="calhead"><button class="icon" aria-label="Previous month" data-act="calMonth" data-arg="-1">&#8249;</button><strong>' + MONTH[ui.m] + ' ' + ui.y + '</strong><button class="icon" aria-label="Next month" data-act="calMonth" data-arg="1">&#8250;</button></div>' +
       '<div class="week"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div><div class="cal">' + cells + '</div>' +
-      '<div class="legend"><span><i style="background:var(--btn)"></i>Training</span><span><i style="background:#2e7d32"></i>Extra</span><span><i style="background:#b35900"></i>Special</span><span><i style="background:#6a3fb5"></i>Performance</span><span><i style="background:#c2185b"></i>Hangout</span><span><i style="background:#d8dadf"></i>Cancelled</span></div>' +
+      '<div class="legend"><span><i style="background:var(--btn)"></i>Training</span><span><i style="background:#2e7d32"></i>Extra</span><span><i style="background:#6a3fb5"></i>Performance</span><span><i style="background:#c2185b"></i>Hangout</span><span><i style="background:#d8dadf"></i>Cancelled</span></div>' +
       (S.admin ? '<div class="hint">Mondays are added for you. Tap any date to change it or add something.</div>' : '<div class="hint">Tap a date to see the details or add a hangout.</div>') + '</section>' + (S.admin ? selectedView(byDate) : memberSelected(byDate)) + hangoutSection();
   }
   var PENCIL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>';
   function draftFor(s, c) {
     if (ui.draft && ui.draft.date === s) return ui.draft;
     var base = c || S.admin.defaults;
-    ui.draft = { date: s, start: base.start, end: base.end, location: base.location, special: !!(c && c.special), kind: c ? (c.kind || 'paid') : 'free', title: c ? (c.title || '') : '', statuses: {}, notify: true };
+    ui.draft = { date: s, start: base.start, end: base.end, location: base.location, kind: c ? (c.kind || 'paid') : 'free', title: c ? (c.title || '') : '', statuses: {}, notify: true };
     return ui.draft;
   }
   function currentClass() {
@@ -252,7 +281,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     var f = ui.draft, c = currentClass();
     if (!f || !f.start || !f.end || !String(f.location || '').trim()) return false;
     if (!c) return true;
-    if (f.start !== c.start || f.end !== c.end || String(f.location).trim() !== c.location || f.special !== c.special) return true;
+    if (f.start !== c.start || f.end !== c.end || String(f.location).trim() !== c.location) return true;
     if (f.kind !== (c.kind || 'paid') || String(f.title).trim() !== (c.title || '')) return true;
     return c.everyone.some(function (p) { return f.statuses[p.id] && f.statuses[p.id] !== p.status; });
   }
@@ -260,12 +289,13 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     var b = document.getElementById('savebtn');
     if (b) b.disabled = !canSave();
   }
-  function classFields(f) {
-    return '<label class="field">Type<select data-change="draftKind">' + [['free', 'Extra (unpaid)'], ['paid', 'Training ($30)'], ['performance', 'Performance']].map(function (o) { return '<option value="' + o[0] + '"' + (f.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
-      '<label class="field">Name (optional)<input type="text" placeholder="e.g. Year-end showcase" value="' + esc(f.title) + '" data-draft="title"></label>' +
+  function classFields(f, isNew) {
+    var types = [['free', 'Extra (unpaid)'], ['paid', 'Training ($30)'], ['performance', 'Performance']];
+    if (isNew) types.push(['hangout', 'Hangout']);
+    return '<label class="field">Type<select data-change="draftKind">' + types.map(function (o) { return '<option value="' + o[0] + '"' + (f.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field">' + (f.kind === 'hangout' ? 'Name' : 'Name (optional)') + '<input type="text" placeholder="' + (f.kind === 'hangout' ? 'e.g. Crew dinner' : 'e.g. Year-end showcase') + '" value="' + esc(f.title) + '" data-draft="title"></label>' +
       '<div class="times"><label class="field">Starts<input type="time" value="' + esc(f.start) + '" data-draft="start"></label><label class="field">Ends<input type="time" value="' + esc(f.end) + '" data-draft="end"></label></div>' +
       '<label class="field">Location<input type="text" value="' + esc(f.location) + '" data-draft="location"></label>' +
-      (f.kind === 'paid' ? '<label class="check"><input type="checkbox" data-draftcheck="special"' + (f.special ? ' checked' : '') + '><span>Special class. Cannot be offset once paid.</span></label>' : '') +
       '<label class="check"><input type="checkbox" data-draftcheck="notify"' + (f.notify ? ' checked' : '') + '><span>Inform group of changes</span></label>';
   }
   function selectedView(byDate) {
@@ -275,8 +305,8 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     var h = '<section class="card"><div class="titlerow"><h2>' + lab(s) + '</h2>' + tag + '</div>';
     if (c && c.title) h += '<div><strong>' + esc(c.title) + '</strong></div>';
     if (!c) {
-      if (ui.adding) h += classFields(draftFor(s, null)) + '<button class="primary" data-act="addClass">Add</button><button class="plain" data-act="stopAdding">Discard</button>';
-      else h += '<div class="hint">Nothing on this date yet.</div><button class="outline" data-act="startAdding">Add class or performance</button>';
+      if (ui.adding) h += classFields(draftFor(s, null), true) + '<button class="primary" data-act="addClass">Add</button><button class="plain" data-act="stopAdding">Discard</button>';
+      else h += '<div class="hint">Nothing on this date yet.</div>';
     } else if (c.cancelled) {
       h += '<div class="hint">Nobody is charged for this class.</div><button class="outline" data-act="restoreClass">Bring this class back</button>';
     } else if (ui.editing) {
@@ -302,9 +332,15 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   function hangoutSection() {
     var s = ui.sel;
     if (!s) return '';
+    if (ui.adding || ui.editing || ui.edit) return '';
     var items = S.hangouts.filter(function (h) { return h.date === s; });
     var canAdd = s >= S.today || !!S.admin;
     if (!items.length && !canAdd) return '';
+    var hasClass = S.admin && S.admin.classes.some(function (c) { return c.date === s; });
+    var addBtn = S.admin && !hasClass
+      ? '<button class="outline" data-act="startAdding">Add to calendar</button>'
+      : '<button class="outline" data-act="addHangout">Add a hangout</button>';
+    if (!items.length && !(ui.hg && ui.hg.date === s)) return addBtn;
     var html = '<section class="card"><h2>Hangouts</h2>';
     var f = ui.hg;
     if (f && f.date === s) {
@@ -324,8 +360,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
         '<div><strong>Going (' + h.going.length + '):</strong> ' + esc(h.going.length ? h.going.join(', ') : 'Nobody yet') + '</div>' +
         '<button class="' + (h.imGoing ? 'plain' : 'outline') + '" data-act="goHangout" data-arg="' + esc(h.id) + '">' + (h.imGoing ? 'Can\'t make it' : 'I\'m going') + '</button></div>';
     }).join('');
-    if (canAdd) html += '<button class="outline" data-act="addHangout">Add a hangout</button>';
-    return html + '</section>';
+    return html + '</section>' + (canAdd ? addBtn : '');
   }
   function canSaveHangout() {
     var f = ui.hg;
@@ -453,9 +488,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       return head + '<section class="card list">' + groups[m].map(function (c) {
         var hint = '', w = whenWhere(c);
         var isPaidItem = !c.kind || c.kind === 'paid';
-        if (c.status === 'absent' && !isPaidItem) hint = '';
-        else if (c.status === 'absent') hint = c.paid && c.special ? 'Special class: already paid, so this cannot be offset.' : c.paid ? '$' + S.training + ' comes off your next payment.' : 'You only pay the $' + S.rent + ' rent for this class.';
-        else if (c.special) hint = 'Cannot be offset once paid.';
+        if (c.status === 'absent' && isPaidItem) hint = c.paid ? '$' + S.training + ' comes off your next payment.' : 'You only pay the $' + S.rent + ' rent for this class.';
         return '<div class="cl"><div><span class="day-name">' + lab(c.date) + '</span>' + (c.title ? '<span class="when" style="display:block;font-weight:600">' + esc(c.title) + '</span>' : '') + (w !== usual ? '<span class="when">' + esc(w) + '</span>' : '') + (itemTag(c) ? '<br>' + itemTag(c) : '') + '</div><div class="seg">' +
           [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (c.status === o[0] ? ' on' : '') + '" aria-label="' + lab(c.date) + ': ' + o[1] + '" aria-pressed="' + (c.status === o[0]) + '" data-act="status" data-arg="' + c.date + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' +
           (c.status === 'late' ? '<input class="wide" type="text" aria-label="Arrival time or note" placeholder="e.g. ETA 8.30pm" value="' + esc(c.note) + '" data-note="' + c.date + '">' : '') +
@@ -502,7 +535,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       html = '<main>' + view + '</main><nav>' + tabs.map(function (n) { return '<button class="' + (ui.tab === n[0] ? 'on' : '') + '" data-act="tab" data-arg="' + n[0] + '">' + n[1] + '</button>'; }).join('') + '</nav>' + sheetView();
     }
     if (ui.toast) html += '<div class="toast" role="status"><span>' + esc(ui.toast) + '</span>' + (ui.undo ? '<button data-act="undo">Undo</button>' : '') + '</div>';
-    if (ui.saving && S) html += '<div class="saving" role="status">Saving...</div>';
+    if ((ui.saving || inflight > 0) && S) html += '<div class="saving" role="status">Saving...</div>';
     document.getElementById('app').innerHTML = html;
     window.scrollTo(0, y);
   }
@@ -524,14 +557,31 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     saveHangout: function () {
       var f = ui.hg;
       if (!canSaveHangout()) return;
-      call('saveHangout', { id: f.id, date: f.date, title: f.title, start: f.start, end: f.end, location: f.location, notify: f.notify }, function () { ui.hg = null; toast('Hangout saved.'); });
+      quick('saveHangout', { id: f.id, date: f.date, title: f.title, start: f.start, end: f.end, location: f.location, notify: f.notify }, function () {
+        if (f.id) S.hangouts.forEach(function (h) { if (h.id === f.id) { h.title = f.title.trim(); h.start = f.start; h.end = f.end; h.location = f.location.trim(); } });
+        else S.hangouts.push({ id: 'saving', date: f.date, title: f.title.trim(), start: f.start, end: f.end, location: f.location.trim(), byName: S.me.name, going: [S.me.name], imGoing: true, canEdit: false });
+        ui.hg = null;
+        toast('Hangout saved.');
+      });
     },
     deleteHangout: function (a) {
       if (ui.confirmDel !== a) { ui.confirmDel = a; render(); return; }
       ui.confirmDel = null;
-      call('deleteHangout', { id: a }, function () { toast('Hangout deleted.'); });
+      quick('deleteHangout', { id: a }, function () {
+        S.hangouts = S.hangouts.filter(function (h) { return h.id !== a; });
+        toast('Hangout deleted.');
+      });
     },
-    goHangout: function (a) { call('toggleGoing', { id: a }); },
+    goHangout: function (a) {
+      if (a === 'saving') return;
+      quick('toggleGoing', { id: a }, function () {
+        S.hangouts.forEach(function (h) {
+          if (h.id !== a) return;
+          h.imGoing = !h.imGoing;
+          h.going = h.imGoing ? h.going.concat(S.me.name) : h.going.filter(function (n) { return n !== S.me.name; });
+        });
+      });
+    },
     toggleMonth: function (a) { var p = a.split('|'); ui.openMonths[p[0]] = p[1] !== 'true'; render(); },
     editClass: function () { ui.editing = true; ui.draft = null; render(); },
     stopEditing: function () { ui.editing = false; ui.edit = false; ui.draft = null; render(); },
@@ -539,13 +589,34 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     payMonth: function (a) { var m = addMonth(S.month, Number(a)); if (m < S.startMonth) return; ui.month = m; call('state'); },
     addClass: function () {
       var f = ui.draft;
-      call('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, kind: f.kind, title: f.title, special: f.kind === 'paid' && f.special, cancelled: false, notify: f.notify }, function () { ui.draft = null; ui.adding = false; toast('Added.'); });
+      if (f.kind === 'hangout') {
+        if (!String(f.title).trim()) { toast('Please enter a name.'); render(); return; }
+        quick('saveHangout', { date: f.date, title: f.title, start: f.start, end: f.end, location: f.location, notify: f.notify }, function () {
+          S.hangouts.push({ id: 'saving', date: f.date, title: f.title.trim(), start: f.start, end: f.end, location: String(f.location).trim(), byName: S.me.name, going: [S.me.name], imGoing: true, canEdit: false });
+          ui.draft = null; ui.adding = false;
+          toast('Added.');
+        });
+        return;
+      }
+      if (!f.start || !f.end || !String(f.location).trim()) { toast('Please enter a time and location.'); render(); return; }
+      quick('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, kind: f.kind, title: f.title, cancelled: false, notify: f.notify }, function () {
+        var total = S.admin.people.filter(function (p) { return p.pays; }).length;
+        S.admin.classes.push({ date: f.date, kind: f.kind, title: String(f.title).trim(), start: f.start, end: f.end, location: String(f.location).trim(), cancelled: false, coming: total, total: total, absent: [], late: [], everyone: [] });
+        ui.draft = null; ui.adding = false;
+        toast('Added.');
+      });
     },
     saveClass: function () {
       var f = ui.draft;
       if (!canSave()) return;
+      var notify = !!ui.editing && f.notify;
       var statuses = Object.keys(f.statuses).map(function (id) { return { id: id, status: f.statuses[id] }; });
-      call('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, kind: f.kind, title: f.title, special: f.kind === 'paid' && f.special, statuses: statuses, notify: !!ui.editing && f.notify }, function () { ui.draft = null; ui.editing = false; ui.edit = false; toast('Saved.'); });
+      quick('saveClass', { date: f.date, start: f.start, end: f.end, location: f.location, kind: f.kind, title: f.title, statuses: statuses, notify: notify }, function () {
+        var c = currentClass();
+        if (c) { c.start = f.start; c.end = f.end; c.location = String(f.location).trim(); c.kind = f.kind; c.title = String(f.title).trim(); }
+        ui.draft = null; ui.editing = false; ui.edit = false;
+        toast('Saved.');
+      });
     },
     restoreClass: function () { ui.draft = null; call('saveClass', { date: ui.sel, cancelled: false }); },
     cancelClass: function () {
@@ -556,7 +627,12 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     toggleEdit: function () { ui.edit = true; ui.draft = null; render(); },
     open: function (a) { ui.sheet = a; ui.diff = ''; ui.toast = null; render(); },
     closeSheet: function () { ui.sheet = null; render(); },
-    confirm: function (a) { call('confirm', { id: a }, function () { toast('Confirmed.'); }); },
+    confirm: function (a) {
+      quick('confirm', { id: a }, function () {
+        S.admin.payments.forEach(function (r) { if (r.id === a) r.state = 'paid'; });
+        toast('Confirmed.');
+      });
+    },
     remind: function () {
       var ids = S.admin.payments.filter(function (r) { return r.state === 'none' && !ui.unsel[r.id]; }).map(function (r) { return r.id; });
       if (!ids.length) { toast('Tick at least one person first.'); render(); return; }
@@ -594,7 +670,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     status: function (a) {
       var p = a.split('|');
       var cur = S.myClasses.filter(function (c) { return c.date === p[0]; })[0];
-      call('setStatus', { date: p[0], status: p[1], note: cur ? cur.note : '' });
+      quick('setStatus', { date: p[0], status: p[1], note: cur ? cur.note : '' }, function () { if (cur) cur.status = p[1]; });
     },
     claim: function () { call('claim', {}, function () { toast('Sent to your teacher to confirm.'); }); },
     unclaim: function () { call('unclaim'); },
@@ -608,7 +684,13 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   });
   document.addEventListener('change', function (e) {
     var k = e.target.getAttribute('data-change');
-    if (k === 'draftKind' && ui.draft) { ui.draft.kind = e.target.value; if (ui.draft.kind !== 'paid') ui.draft.special = false; render(); }
+    if (k === 'draftKind' && ui.draft) {
+      var f = ui.draft, d = S.admin.defaults, wasHangout = f.kind === 'hangout';
+      f.kind = e.target.value;
+      if (f.kind === 'hangout' && f.start === d.start && f.end === d.end && f.location === d.location) { f.start = ''; f.end = ''; f.location = ''; }
+      if (f.kind !== 'hangout' && wasHangout && !f.start && !f.end && !f.location) { f.start = d.start; f.end = d.end; f.location = d.location; }
+      render();
+    }
     var hc = e.target.getAttribute('data-hgcheck');
     if (hc && ui.hg) ui.hg[hc] = e.target.checked;
     var dc = e.target.getAttribute('data-draftcheck');
@@ -617,7 +699,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     if (k === 'statusFor' && ui.draft) { ui.draft.statuses[e.target.getAttribute('data-arg')] = e.target.value; refreshSave(); }
     if (k === 'approveKind') ui.approve[e.target.getAttribute('data-arg')].kind = e.target.value;
     var note = e.target.getAttribute('data-note');
-    if (note) call('setStatus', { date: note, status: 'late', note: e.target.value });
+    if (note) quick('setStatus', { date: note, status: 'late', note: e.target.value });
   });
   document.addEventListener('input', function (e) {
     var k = e.target.getAttribute('data-input');

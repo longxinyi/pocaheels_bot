@@ -36,6 +36,7 @@ function itemName(c) { return c.title || KINDS[c.kind || 'paid']; }
 
 // ---------- setup, run once by hand ----------
 function setup() {
+  resetCaches();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   PropertiesService.getScriptProperties().setProperty('SHEET_ID', ss.getId());
   Object.keys(TABLES).forEach((name) => {
@@ -57,19 +58,27 @@ function setup() {
 }
 
 // ---------- storage ----------
+// Each request opens the Sheet once and reads each tab at most once, which is most of the save time.
+let BOOK = null;
+let TABLE_CACHE = {};
+function resetCaches() { BOOK = null; TABLE_CACHE = {}; }
 function readTable(name) {
-  const sh = bookOrActive();
-  const values = sh.getSheetByName(name).getDataRange().getDisplayValues();
-  const head = TABLES[name];
-  return values.slice(1).filter((r) => r.join('') !== '').map((r) => {
-    const o = {};
-    head.forEach((h, i) => { o[h] = r[i] === undefined ? '' : String(r[i]); });
-    return o;
-  });
+  if (!TABLE_CACHE[name]) {
+    const values = bookOrActive().getSheetByName(name).getDataRange().getDisplayValues();
+    const head = TABLES[name];
+    TABLE_CACHE[name] = values.slice(1).filter((r) => r.join('') !== '').map((r) => {
+      const o = {};
+      head.forEach((h, i) => { o[h] = r[i] === undefined ? '' : String(r[i]); });
+      return o;
+    });
+  }
+  return TABLE_CACHE[name].map((r) => Object.assign({}, r));
 }
 function bookOrActive() {
+  if (BOOK) return BOOK;
   const id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
-  return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+  BOOK = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+  return BOOK;
 }
 function writeTable(name, rows) {
   const sh = bookOrActive().getSheetByName(name);
@@ -82,7 +91,13 @@ function writeTable(name, rows) {
   }
   const last = sh.getLastRow();
   if (last > 1) sh.getRange(2, 1, last - 1, head.length).clearContent();
-  if (rows.length) sh.getRange(2, 1, rows.length, head.length).setValues(rows.map((r) => head.map((h) => (r[h] === undefined ? '' : String(r[h])))));
+  const cells = rows.map((r) => head.map((h) => (r[h] === undefined ? '' : String(r[h]))));
+  if (rows.length) sh.getRange(2, 1, rows.length, head.length).setValues(cells);
+  TABLE_CACHE[name] = cells.map((row) => {
+    const o = {};
+    head.forEach((h, i) => { o[h] = row[i]; });
+    return o;
+  });
 }
 function logAction(actor, action, detail) {
   bookOrActive().getSheetByName('Log').appendRow([nowStamp(), actor, action, JSON.stringify(detail || {})]);
@@ -178,7 +193,6 @@ function verifyInitData(initData) {
  * The rules, all in one place:
  * - Each class costs RENT + TRAINING. An absence costs RENT only, so an absence marked after paying
  *   automatically leaves TRAINING as credit for the next payment.
- * - A special class marked absent after paying stays at the full price, so there is no offset.
  * - A cancelled class costs nothing, and so does anything that isn't paid training: extra training,
  *   performances and hangouts never affect what anyone owes.
  * - Months before START_MONTH were paid outside this app: they cost nothing, and an absence there
@@ -196,15 +210,13 @@ function buildLedger(data, cfg) {
     const s = statusBy[person.id + '|' + c.date];
     const absent = s && s.status === 'absent';
     if (c.cancelled || !isPaid(c)) return 0;
-    if (month < cfg.START_MONTH) return absent && !c.special ? -training : 0;
-    if (!absent) return full;
-    const p = payBy[person.id + '|' + month];
-    return c.special && p && s.marked_at > p.at ? full : rent;
+    if (month < cfg.START_MONTH) return absent ? -training : 0;
+    return absent ? rent : full;
   }
   function summary(person, month) {
     let before = 0, thisMonth = 0;
     const lines = [];
-    let here = 0, away = 0, locked = 0;
+    let here = 0, away = 0;
     const offsets = [];
     const prev = addMonths(month, -1);
     data.classes.forEach((c) => {
@@ -214,7 +226,7 @@ function buildLedger(data, cfg) {
       if (m < month) {
         before -= amt;
         const s = statusBy[person.id + '|' + c.date];
-        if (m === prev && s && s.status === 'absent' && !c.cancelled && isPaid(c) && !c.special && c.date >= person.joined) {
+        if (m === prev && s && s.status === 'absent' && !c.cancelled && isPaid(c) && c.date >= person.joined) {
           const p = payBy[person.id + '|' + prev];
           if (prev < cfg.START_MONTH || (p && s.marked_at > p.at)) offsets.push(c.date);
         }
@@ -223,14 +235,12 @@ function buildLedger(data, cfg) {
       thisMonth += amt;
       if (c.cancelled || amt === 0) return;
       if (amt === rent) away += 1;
-      else if (statusBy[person.id + '|' + c.date] && statusBy[person.id + '|' + c.date].status === 'absent') locked += 1;
       else here += 1;
     });
     data.payments.forEach((p) => {
       if (p.person_id === person.id && p.month < month) before += Number(p.amount);
     });
     if (here) lines.push({ l: here + (here === 1 ? ' class' : ' classes') + ' at $' + full, v: '$' + here * full });
-    if (locked) lines.push({ l: locked + ' special ' + (locked === 1 ? 'class' : 'classes') + ' missed, no offset', v: '$' + locked * full });
     if (away) lines.push({ l: away + (away === 1 ? ' absence' : ' absences') + ', rent only at $' + rent, v: '$' + away * rent });
     let left = before;
     offsets.forEach((d) => {
@@ -281,7 +291,7 @@ function stateFor(me, month) {
     return { coming: active.length - away.length, total: active.length };
   }
   out.myClasses = data.classes.filter((c) => !c.cancelled && c.date >= t).map((c) => ({
-    date: c.date, special: !!c.special, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
+    date: c.date, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
     status: mine[c.date] ? mine[c.date].status : 'coming', note: mine[c.date] ? mine[c.date].note : '',
     paid: c.date.slice(0, 7) < cfg.START_MONTH || data.payments.some((p) => p.person_id === me.id && p.month === c.date.slice(0, 7)),
   }));
@@ -298,7 +308,7 @@ function stateFor(me, month) {
   }).sort((a, b) => (a.date < b.date ? -1 : 1));
   if (me.role !== 'admin') {
     out.calendar = data.classes.map((c) => Object.assign({
-      date: c.date, special: !!c.special, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
+      date: c.date, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
     }, counts(c)));
   }
   if (me.role === 'admin') {
@@ -312,7 +322,7 @@ function stateFor(me, month) {
         const absent = active.filter((p) => rows.some((s) => s.person_id === p.id && s.status === 'absent'));
         const late = active.filter((p) => rows.some((s) => s.person_id === p.id && s.status === 'late'));
         return {
-          date: c.date, special: !!c.special, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
+          date: c.date, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
           coming: active.length - absent.length, total: active.length,
           absent: absent.map((p) => p.name),
           late: late.map((p) => {
@@ -353,6 +363,7 @@ function handle(tgUser, action, p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    resetCaches();
     ensureMondays();
     const id = String(tgUser.id);
     let people = readTable('People');
@@ -492,14 +503,12 @@ const ADMIN_ACTIONS = {
     const isNew = !c;
     if (isNew) { c = { date: p.date, special: '', cancelled: '', start: cfg.DEFAULT_START, end: cfg.DEFAULT_END, location: cfg.DEFAULT_LOCATION, kind: 'free', title: '' }; rows.push(c); }
     const before = whenWhere(c);
-    if (p.special !== undefined) c.special = p.special ? 'yes' : '';
     if (p.cancelled !== undefined) c.cancelled = p.cancelled ? 'yes' : '';
     if (p.start !== undefined) c.start = p.start;
     if (p.end !== undefined) c.end = p.end;
     if (p.location !== undefined) c.location = String(p.location).trim().slice(0, 100);
     if (p.kind !== undefined) c.kind = p.kind;
     if (p.title !== undefined) c.title = String(p.title).trim().slice(0, 60);
-    if (!isPaid(c)) c.special = '';
     rows.sort((a, b) => (a.date < b.date ? -1 : 1));
     writeTable('Classes', rows);
     (p.statuses || []).forEach((u) => {
@@ -633,6 +642,7 @@ function fetchGroups() {
 
 // ---------- automatic messages, run twice a day ----------
 function tick() {
+  resetCaches();
   const cfg = config();
   if (!cfg.GROUP_CHAT_ID) return;
   const props = PropertiesService.getScriptProperties();
