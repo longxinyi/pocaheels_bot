@@ -512,9 +512,9 @@ function sendToGroup(html) {
   if (cfg.APP_LINK) body.reply_markup = { inline_keyboard: [[{ text: 'Open app', url: cfg.APP_LINK }]] };
   telegram('sendMessage', body);
 }
-function sendReminder(month, people) {
+function sendReminder(month, people, overdue) {
   const tags = people.map((p) => '<a href="tg://user?id=' + encodeURIComponent(p.id) + '">' + esc(p.name) + '</a>').join(' ');
-  sendToGroup('Reminder: ' + monthName(month) + ' payment is due on ' + niceDate(dueDate(month)).slice(4) + '.\nStill to pay: ' + tags + '\nOpen the app to see your amount.');
+  sendToGroup('Reminder: ' + monthName(month) + ' payment ' + (overdue ? 'was' : 'is') + ' due on ' + niceDate(dueDate(month)).slice(4) + '.\nStill to pay: ' + tags + '\nOpen the app to see your amount.');
 }
 function headcountText(date) {
   const cls = readTable('Classes').find((c) => c.date === date);
@@ -551,11 +551,17 @@ function tick() {
   const hour = nowHour();
   if (hour >= 10) {
     const month = paymentMonth(cfg);
-    if (t === dueDate(month)) {
+    const due = dueDate(month);
+    if (t === due) {
+      once('sent_due_' + month, () => sendToGroup(monthName(month) + ' payment is due today.\nOpen the app to see your amount.'));
+    }
+    const dayAfter = dateOf(due);
+    dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
+    if (t === isoOf(dayAfter)) {
       const data = loadData();
       const led = buildLedger(data, cfg);
       const unpaid = billable(data.people).filter((p) => led.summary(p, month).state === 'none');
-      if (unpaid.length) once('sent_due_' + month, () => sendReminder(month, unpaid));
+      if (unpaid.length) once('sent_overdue_' + month, () => sendReminder(month, unpaid, true));
     }
   }
   if (hour >= 18) {
