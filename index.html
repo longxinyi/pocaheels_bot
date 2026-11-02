@@ -495,7 +495,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       ui.approve[p.id] = f;
       return '<div class="card" style="padding:12px 0 0;border-top:1px solid var(--line);border-radius:0"><div class="hint">Telegram: ' + esc(p.tgName) + (p.username ? ' (@' + esc(p.username) + ')' : '') + '</div>' +
         '<input type="text" aria-label="Name to show" placeholder="Name to show" value="' + esc(f.name) + '" data-input="approveName" data-arg="' + esc(p.id) + '">' +
-        '<select aria-label="Role" data-change="approveKind" data-arg="' + esc(p.id) + '">' + [['member', 'Member'], ['adminpays', 'Admin who also pays'], ['admin', 'Admin who doesn\'t pay (teacher)']].map(function (o) { return '<option value="' + o[0] + '"' + (f.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+        '<select aria-label="Role" data-change="approveKind" data-arg="' + esc(p.id) + '">' + [['adminpays', 'Admin'], ['admin', 'Teacher'], ['member', 'Student']].map(function (o) { return '<option value="' + o[0] + '"' + (f.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
         '<div class="inline"><button class="primary" data-act="approve" data-arg="' + esc(p.id) + '">Approve</button><button class="plain" style="width:auto;padding:0 18px" data-act="decline" data-arg="' + esc(p.id) + '">Decline</button></div></div>';
     }).join('') + '</section>';
     h += '<section class="card"><h2>Team</h2>' + a.people.map(function (p) {
