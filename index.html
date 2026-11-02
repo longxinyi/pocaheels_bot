@@ -15,7 +15,6 @@
   --input-bg:#fff;--input-line:rgba(90,20,80,.42);--placeholder:#8a6f86;
   --train:#7a1361;--on-train:#fff;--free:#7345d6;--on-free:#fff;--perf:#d81f78;--on-perf:#fff;--hang:#1b7f52;--on-hang:#fff;--off:#e6dae4;--on-off:#6b556a;
   --late:#a85a00;--on-late:#fff;
-  --curtain:#5a0f4c;--curtain-text:#ffe8f5;--curtain-soft:#f4cbe5;--curtain-line:rgba(255,232,245,.6);
   --toast:#2b0f2b;--on-toast:#fff;--toast-link:#ff9ad5;
   --display:"Bodoni Moda",Didot,"Bodoni 72",Georgia,serif;
   --body:Figtree,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
@@ -25,7 +24,7 @@
   --input-bg:#1c0d25;--input-line:rgba(255,225,250,.42);--placeholder:#a48fa7;
   --train:#b8338e;--on-train:#fff;--free:#a98cf8;--on-free:#1b0b2b;--perf:#ff85be;--on-perf:#2b0418;--hang:#4fcb92;--on-hang:#06281a;--off:#3a2a42;--on-off:#bca5be;
   --late:#f2a93b;--on-late:#2b1500;
-  --curtain:#470b3e;--toast:#f8eaf5;--on-toast:#2b0f2b;--toast-link:#a3117e}
+  --toast:#f8eaf5;--on-toast:#2b0f2b;--toast-link:#a3117e}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--sec);color:var(--text);font:16px/1.4 var(--body);-webkit-text-size-adjust:100%;font-variant-numeric:tabular-nums}
 button,input,select{font:inherit;color:inherit}
@@ -40,13 +39,9 @@ h1{font-size:38px}
 h2{font-size:23px}
 button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 
-/* The curtain: every screen opens under the Velvet Room's valance. Each fold ends in one scallop. */
-.stage,.stage::after,.center{background-color:var(--curtain);background-image:repeating-linear-gradient(90deg,rgba(0,0,0,.24) 0,rgba(255,255,255,.07) 16px,rgba(0,0,0,.24) 32px)}
-.stage{position:relative;margin:0 -12px 14px;padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px;color:var(--curtain-text);text-align:center}
-.stage::after{content:"";position:absolute;left:0;right:0;top:calc(100% - 1px);height:14px;-webkit-mask:radial-gradient(ellipse 16px 13px at 16px 0,#000 97%,transparent 100%) 0 0/32px 22px repeat-x;mask:radial-gradient(ellipse 16px 13px at 16px 0,#000 97%,transparent 100%) 0 0/32px 22px repeat-x}
-.stage h1 span{font-size:.5em;font-style:normal;font-weight:500;color:var(--curtain-soft);white-space:nowrap}
-.stage .hint{color:var(--curtain-soft)}
-.stage .icon{flex-shrink:0;border-color:var(--curtain-line);color:var(--curtain-text)}
+.stage{display:flex;flex-direction:column;gap:10px;padding:14px 4px 4px;text-align:center}
+.stage h1 span{font-size:.5em;font-style:normal;font-weight:500;color:var(--hint);white-space:nowrap}
+.stage .icon{flex-shrink:0}
 .stage strong{font-weight:600}
 .stage .calhead h1{flex:1;min-width:0}
 .stage h1.long{font-size:28px}
@@ -103,10 +98,10 @@ button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .big span{font-family:var(--body);font-size:16px;font-weight:500;color:var(--hint)}
 .check{display:flex;align-items:center;gap:10px;min-height:44px}
 input[type=checkbox]{width:22px;height:22px;flex-shrink:0;accent-color:var(--btn)}
-.progress{height:6px;border-radius:3px;background:rgba(255,232,245,.22);overflow:hidden}
-.progress div{height:6px;border-radius:3px;background:var(--curtain-text)}
+.progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.progress div{height:6px;border-radius:3px;background:var(--btn)}
 .sum b{display:block;font-family:var(--display);font-size:60px;font-weight:600;line-height:1}
-.sum b span{font-family:var(--body);font-size:16px;font-weight:500;color:var(--curtain-soft)}
+.sum b span{font-family:var(--body);font-size:16px;font-weight:500;color:var(--hint)}
 .row{display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 0;border-top:1px solid var(--line)}
 .rowbtn{flex:1;min-width:0;min-height:46px;display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--input-line);border-radius:14px;background:transparent;padding:4px 14px;text-align:left}
 .small{min-height:44px;padding:0 16px;border:1px solid var(--input-line);border-radius:999px;background:var(--btn);color:var(--btn-text);font-weight:700}
@@ -170,9 +165,9 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
 .toast{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);width:calc(100% - 24px);max-width:456px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:16px;background:var(--toast);color:var(--on-toast);z-index:20}
 .toast button{min-height:40px;padding:0 12px;border:1.5px solid var(--toast-link);border-radius:999px;background:transparent;color:var(--toast-link);font-weight:700}
 .saving{position:fixed;top:8px;left:50%;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:var(--toast);color:var(--on-toast);font-size:14px;z-index:30}
-.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;color:var(--curtain-text)}
-.center .hint{color:var(--curtain-soft);font-size:16px}
-.center .primary{max-width:240px;background:var(--curtain-text);color:var(--curtain);border-color:var(--curtain-text)}
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center}
+.center .hint{font-size:16px}
+.center .primary{max-width:240px}
 .overlay{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;background:rgba(30,5,30,.55);z-index:10}
 .sheet{width:100%;max-width:480px;max-height:88vh;overflow-y:auto;background:var(--bg);border-radius:28px 28px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
 .sheethead{display:flex;align-items:center;justify-content:space-between}
@@ -201,7 +196,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     if (!tg) return;
     try {
-      tg.setHeaderColor(dark ? '#470b3e' : '#5a0f4c');
+      tg.setHeaderColor(dark ? '#160a1d' : '#f6ebf4');
       tg.setBackgroundColor(dark ? '#160a1d' : '#f6ebf4');
       tg.setBottomBarColor(dark ? '#25122f' : '#ffffff');
     } catch (e) { /* older Telegram apps can't recolour their own bars */ }
