@@ -61,10 +61,21 @@ input[type=text],input[type=number],select{font-weight:400;width:100%;min-height
 .row select{width:auto;min-height:40px;margin-left:auto}
 .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:3px;border-radius:10px;background:var(--sec)}
 .seg button{min-height:44px;border:0;border-radius:8px;background:transparent;font-size:15px;font-weight:600}
-.seg .coming.on{background:var(--btn);color:var(--btn-text)}
+.seg .coming.on{background:var(--bg);color:var(--link);box-shadow:inset 0 0 0 1px var(--link)}
 .seg .late.on{background:#8a4500;color:#fff}
 .seg .absent.on{background:var(--danger);color:#fff}
 .month{margin:18px 4px 0;padding-bottom:6px;font-size:22px;font-weight:700;color:var(--text);border-bottom:2px solid var(--text)}
+.cl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.cl:first-child{border-top:0;padding-top:0}
+.cl:last-child{padding-bottom:0}
+.cl .wide{grid-column:1/-1}
+.cl .day-name{font-weight:600;display:block}
+.cl .tag{display:inline-block;margin-top:3px}
+.cl .seg{grid-template-columns:repeat(3,66px);gap:2px;padding:2px}
+.cl .seg button{min-height:44px;font-size:14px;padding:0}
+.cl input[type=text]{min-height:44px}
+.card.list{gap:0;padding:12px 14px}
+.usual{display:flex;gap:6px;font-size:14px;color:var(--hint);padding:0 4px}
 .month small{font-size:14px;font-weight:500;color:var(--hint)}
 .month:first-of-type{margin-top:8px}
 .when{font-size:14px;color:var(--hint)}
@@ -171,6 +182,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       var d = dt(S.today); ui.y = d.getFullYear(); ui.m = d.getMonth();
     }
     if (ui.tab === 'mypay' && !S.myPayment) ui.tab = 'myclasses';
+    if (ui.tab === 'me' && !(S.admin && S.me.pays)) ui.tab = S.admin ? 'classes' : 'myclasses';
   }
 
   // ---------- admin: classes ----------
@@ -311,24 +323,33 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   }
 
   // ---------- member ----------
+  function usualClass() {
+    var counts = {}, best = '';
+    S.myClasses.forEach(function (c) {
+      var w = whenWhere(c);
+      counts[w] = (counts[w] || 0) + 1;
+      if (!best || counts[w] > counts[best]) best = w;
+    });
+    return best;
+  }
   function myClassesCards() {
-    var groups = {}, order = [];
+    var groups = {}, order = [], usual = usualClass();
     S.myClasses.forEach(function (c) {
       var m = c.date.slice(0, 7);
       if (!groups[m]) { groups[m] = []; order.push(m); }
       groups[m].push(c);
     });
     if (!order.length) return '<section class="card"><div class="hint">No upcoming classes yet.</div></section>';
-    return order.slice(0, 3).map(function (m) {
-      return '<h2 class="month">' + monthOf(m) + (m < S.startMonth ? ' <small>already paid</small>' : '') + '</h2>' + groups[m].map(function (c) {
-        var hint = '';
+    return (usual ? '<div class="usual">Usually ' + esc(usual) + '</div>' : '') + order.slice(0, 3).map(function (m) {
+      return '<h2 class="month">' + monthOf(m) + (m < S.startMonth ? ' <small>already paid</small>' : '') + '</h2><section class="card list">' + groups[m].map(function (c) {
+        var hint = '', w = whenWhere(c);
         if (c.status === 'absent') hint = c.paid && c.special ? 'Special class: already paid, so this cannot be offset.' : c.paid ? '$' + S.training + ' comes off your next payment.' : 'You only pay the $' + S.rent + ' rent for this class.';
         else if (c.special) hint = 'External teacher. Cannot be offset once paid.';
-        return '<section class="card"><div class="titlerow"><strong>' + lab(c.date) + '</strong>' + (c.special ? '<span class="tag special">Special</span>' : '') + '</div><div class="when">' + esc(whenWhere(c)) + '</div><div class="seg">' +
-          [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (c.status === o[0] ? ' on' : '') + '" data-act="status" data-arg="' + c.date + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' +
-          (c.status === 'late' ? '<input type="text" aria-label="Arrival time or note" placeholder="e.g. ETA 8.30pm" value="' + esc(c.note) + '" data-note="' + c.date + '">' : '') +
-          (hint ? '<div class="hint">' + esc(hint) + '</div>' : '') + '</section>';
-      }).join('');
+        return '<div class="cl"><div><span class="day-name">' + lab(c.date) + '</span>' + (w !== usual ? '<span class="when">' + esc(w) + '</span>' : '') + (c.special ? '<br><span class="tag special">Special</span>' : '') + '</div><div class="seg">' +
+          [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (c.status === o[0] ? ' on' : '') + '" aria-label="' + lab(c.date) + ': ' + o[1] + '" aria-pressed="' + (c.status === o[0]) + '" data-act="status" data-arg="' + c.date + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+          (c.status === 'late' ? '<input class="wide" type="text" aria-label="Arrival time or note" placeholder="e.g. ETA 8.30pm" value="' + esc(c.note) + '" data-note="' + c.date + '">' : '') +
+          (hint ? '<div class="hint wide">' + esc(hint) + '</div>' : '') + '</div>';
+      }).join('') + '</section>';
     }).join('');
   }
   function myClassesView() {
@@ -346,6 +367,11 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     return h;
   }
 
+  function meView() {
+    var pay = ui.meView === 'pay';
+    return '<div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr));background:var(--bg)"><button class="coming' + (pay ? '' : ' on') + '" data-act="meView" data-arg="classes">My classes</button><button class="coming' + (pay ? ' on' : '') + '" data-act="meView" data-arg="pay">My payment</button></div>' + (pay ? myPaymentView() : myClassesView());
+  }
+
   // ---------- page ----------
   function center(title, text, retry) {
     return '<div class="center"><h1>' + esc(title) + '</h1><div class="hint">' + esc(text) + '</div>' + (retry ? '<button class="primary" style="max-width:240px" data-act="reload">Try again</button>' : '') + '</div>';
@@ -359,10 +385,9 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     else {
       var tabs = [];
       if (S.admin) tabs = [['classes', 'Classes'], ['payments', 'Payments'], ['people', 'People']];
-      tabs.push(['myclasses', S.admin ? 'My classes' : 'My classes']);
-      if (S.myPayment) tabs.push(['mypay', 'My payment']);
-      if (S.admin && !S.me.pays) tabs = tabs.filter(function (n) { return n[0] !== 'myclasses'; });
-      var view = ui.tab === 'classes' ? classesView() : ui.tab === 'payments' ? paymentsView() : ui.tab === 'people' ? peopleView() : ui.tab === 'mypay' ? myPaymentView() : myClassesView();
+      if (S.admin) { if (S.me.pays) tabs.push(['me', 'Me']); }
+      else { tabs.push(['myclasses', 'My classes']); if (S.myPayment) tabs.push(['mypay', 'My payment']); }
+      var view = ui.tab === 'classes' ? classesView() : ui.tab === 'payments' ? paymentsView() : ui.tab === 'people' ? peopleView() : ui.tab === 'me' ? meView() : ui.tab === 'mypay' ? myPaymentView() : myClassesView();
       html = '<main>' + view + '</main><nav>' + tabs.map(function (n) { return '<button class="' + (ui.tab === n[0] ? 'on' : '') + '" data-act="tab" data-arg="' + n[0] + '">' + n[1] + '</button>'; }).join('') + '</nav>' + sheetView();
     }
     if (ui.toast) html += '<div class="toast" role="status"><span>' + esc(ui.toast) + '</span>' + (ui.undo ? '<button data-act="undo">Undo</button>' : '') + '</div>';
@@ -374,6 +399,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   var actions = {
     reload: function () { ui.loadError = null; call('state'); },
     tab: function (a) { ui.tab = a; window.scrollTo(0, 0); render(); },
+    meView: function (a) { ui.meView = a; window.scrollTo(0, 0); render(); },
     pick: function (a) { ui.sel = a; ui.edit = false; ui.draft = null; render(); },
     jump: function (a) { var d = dt(a); ui.sel = a; ui.draft = null; ui.y = d.getFullYear(); ui.m = d.getMonth(); render(); },
     calMonth: function (a) { var d = new Date(ui.y, ui.m + Number(a), 1); ui.y = d.getFullYear(); ui.m = d.getMonth(); ui.sel = null; render(); },
