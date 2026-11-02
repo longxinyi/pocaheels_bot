@@ -542,7 +542,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     if (c.cancelled) return h + '</section>';
     h += '<div class="big">' + c.coming + '/' + c.total + ' <span>coming</span></div>';
     var mine = S.myClasses.filter(function (x) { return x.date === s; })[0];
-    if (mine) h += '<div class="seg">' + [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (mine.status === o[0] ? ' on' : '') + '" aria-pressed="' + (mine.status === o[0]) + '" data-act="status" data-arg="' + s + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+    if (mine) h += '<div class="seg">' + [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (mine.status === o[0] ? ' on' : '') + '" aria-pressed="' + (mine.status === o[0]) + '" data-act="status" data-arg="' + s + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' + noteInput(mine, '');
     return h + '</section>';
   }
 
@@ -700,6 +700,12 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     });
     return best;
   }
+  // Late asks for an arrival time and absent asks for a reason. Both are optional.
+  function noteInput(c, cls) {
+    if (c.status !== 'late' && c.status !== 'absent') return '';
+    var late = c.status === 'late';
+    return '<input class="' + cls + '" type="text" aria-label="' + (late ? 'Arrival time or note' : 'Reason for being absent') + '" placeholder="' + (late ? 'e.g. ETA 8.30pm' : 'Reason, e.g. overseas') + '" value="' + esc(c.note) + '" data-note="' + c.date + '">';
+  }
   function myClassesCards() {
     var groups = {}, order = [], usual = usualClass();
     S.myClasses.forEach(function (c) {
@@ -722,7 +728,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
         if (c.status === 'absent' && isPaidItem) hint = c.paid ? '$' + S.training + ' comes off your next payment.' : 'You only pay the $' + S.rent + ' rent for this class.';
         return '<div class="cl"><div><span class="day-name">' + lab(c.date) + '</span>' + (c.title ? '<span class="when" style="display:block;font-weight:600">' + esc(c.title) + '</span>' : '') + (w !== usual ? '<span class="when">' + esc(w) + '</span>' : '') + (itemTag(c) ? '<br>' + itemTag(c) : '') + '</div><div class="seg">' +
           [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (c.status === o[0] ? ' on' : '') + '" aria-label="' + lab(c.date) + ': ' + o[1] + '" aria-pressed="' + (c.status === o[0]) + '" data-act="status" data-arg="' + c.date + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' +
-          (c.status === 'late' ? '<input class="wide" type="text" aria-label="Arrival time or note" placeholder="e.g. ETA 8.30pm" value="' + esc(c.note) + '" data-note="' + c.date + '">' : '') +
+          noteInput(c, 'wide') +
           (hint ? '<div class="hint wide">' + esc(hint) + '</div>' : '') + '</div>';
       }).join('') + '</section>';
     }).join('');
@@ -945,7 +951,9 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     status: function (a) {
       var p = a.split('|');
       var cur = S.myClasses.filter(function (c) { return c.date === p[0]; })[0];
-      quick('setStatus', { date: p[0], status: p[1], note: cur ? cur.note : '' }, function () { if (cur) cur.status = p[1]; });
+      // A note belongs to one status: an ETA isn't a reason for being absent.
+      var keep = cur && cur.status === p[1] ? cur.note : '';
+      quick('setStatus', { date: p[0], status: p[1], note: keep }, function () { if (cur) { cur.status = p[1]; cur.note = keep; } });
     },
     unclaim: function () { call('unclaim'); },
     undo: function () { var u = ui.undo; ui.toast = null; ui.undo = null; if (u) call(u.action, u.payload); }
@@ -976,7 +984,13 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     if (k === 'proofFile') readProof(e.target.files[0]);
     if (k === 'approveKind') ui.approve[e.target.getAttribute('data-arg')].kind = e.target.value;
     var note = e.target.getAttribute('data-note');
-    if (note) quick('setStatus', { date: note, status: 'late', note: e.target.value });
+    if (note) {
+      var noted = S.myClasses.filter(function (x) { return x.date === note; })[0];
+      if (noted) {
+        noted.note = e.target.value;
+        quick('setStatus', { date: note, status: noted.status, note: e.target.value });
+      }
+    }
   });
   document.addEventListener('input', function (e) {
     var k = e.target.getAttribute('data-input');

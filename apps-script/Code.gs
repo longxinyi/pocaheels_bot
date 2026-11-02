@@ -376,7 +376,10 @@ function stateFor(me, month) {
         return {
           date: c.date, cancelled: !!c.cancelled, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
           coming: active.length - absent.length, total: active.length,
-          absent: absent.map((p) => p.name),
+          absent: absent.map((p) => {
+            const n = rows.find((s) => s.person_id === p.id).note;
+            return n ? p.name + ' (' + n + ')' : p.name;
+          }),
           late: late.map((p) => {
             const n = rows.find((s) => s.person_id === p.id).note;
             return n ? p.name + ' (' + n + ')' : p.name;
