@@ -631,7 +631,7 @@ const ADMIN_ACTIONS = {
   setGroup(me, p) {
     setConfig('GROUP_CHAT_ID', String(p.id));
     setConfig('GROUP_TITLE', String(p.title || ''));
-    sendToGroup('hello~ this is poca heels crew bot! i will be everyone\'s secretary, in charge of payment and scheduling. open the <a href="' + MINI_APP_LINK + '">miniapp</a> to see what i can do 🕺🏻🪩');
+    sendToGroup('hello~ this is poca heels crew bot! i will be everyone\'s secretary, in charge of payment and scheduling.\nopen the <a href="' + MINI_APP_LINK + '">miniapp</a> to see what i can do 🕺🏻🪩');
   },
 };
 
@@ -689,7 +689,7 @@ function notifyGroup(html, topicKey) {
 }
 function sendReminder(people) {
   const tags = people.map((p) => '<a href="tg://user?id=' + encodeURIComponent(p.id) + '">' + esc(p.name) + '</a>').join(' ');
-  sendToGroup('gentle reminder for payment 🙏🏻 ' + tags + ' mark in the <a href="' + MINI_APP_LINK + '">miniapp</a> once transferred!', 'TOPIC_PAYMENTS');
+  sendToGroup('gentle reminder for payment 🙏🏻 ' + tags + '\nmark in the <a href="' + MINI_APP_LINK + '">miniapp</a> once transferred!', 'TOPIC_PAYMENTS');
 }
 function fetchGroups() {
   const updates = telegram('getUpdates', { limit: 100 });
@@ -719,7 +719,7 @@ function tick() {
     const month = paymentMonth(cfg);
     const due = dueDate(month);
     if (t === due) {
-      once('sent_due_' + month, () => sendToGroup('hi!! ' + monthName(month) + ' payment is due today. open the <a href="' + MINI_APP_LINK + '">miniapp</a> to see your amount due 💰💰', 'TOPIC_PAYMENTS'));
+      once('sent_due_' + month, () => sendToGroup('hi!! ' + monthName(month) + ' payment is due today.\nopen the <a href="' + MINI_APP_LINK + '">miniapp</a> to see your amount due 💰💰', 'TOPIC_PAYMENTS'));
     }
     const dayAfter = dateOf(due);
     dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
