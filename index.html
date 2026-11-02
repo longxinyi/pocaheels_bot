@@ -176,7 +176,28 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     toastTimer = setTimeout(function () { ui.toast = null; ui.undo = null; render(); }, 6000);
   }
   // Saves run one after another so they can't overwrite each other.
-  var chain = Promise.resolve(), inflight = 0;
+  var chain = Promise.resolve(), inflight = 0, writes = 0;
+  var CACHE_KEY = 'poca:' + (tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 'anon');
+  function adopt(res) {
+    S = res; ui.month = res.month; init();
+    try {
+      if (res.pending || res.removed) localStorage.removeItem(CACHE_KEY);
+      else localStorage.setItem(CACHE_KEY, JSON.stringify(res));
+    } catch (e) { /* the app still works without the saved copy */ }
+  }
+  // Shows the last saved copy straight away, then quietly swaps in the latest data.
+  function start() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e) { saved = null; }
+    if (!saved || !tg || !tg.initData) { render(); call('state'); return; }
+    S = saved; ui.month = saved.paymentMonth; init(); render();
+    post('state').then(function (res) {
+      inflight--;
+      if (res.error) { toast(res.error); render(); return; }
+      if (inflight === 0) adopt(res);
+      softRender();
+    }).catch(function () { inflight--; toast('Could not refresh. Showing your last saved data.'); render(); });
+  }
   function post(action, payload) {
     inflight++;
     var body = JSON.stringify({ initData: tg.initData, action: action, payload: Object.assign({ month: ui.month }, payload || {}) });
@@ -203,7 +224,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
           render();
           return;
         }
-        if (inflight === 0) { S = res; ui.month = res.month; init(); }
+        if (inflight === 0) adopt(res);
         if (res.groups) ui.groups = res.groups;
         if (done) done(res);
         render();
@@ -220,16 +241,17 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   function quick(action, payload, apply) {
     if (!tg || !tg.initData) return;
     if (apply) apply();
+    writes++;
     render();
     post(action, payload)
       .then(function (res) {
-        inflight--;
+        inflight--; writes--;
         if (res.error) { toast(res.error); call('state'); return; }
-        if (inflight === 0) { S = res; ui.month = res.month; init(); }
+        if (inflight === 0) adopt(res);
         softRender();
       })
       .catch(function () {
-        inflight--;
+        inflight--; writes--;
         toast('That did not save. Please try again.');
         call('state');
       });
@@ -535,7 +557,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
       html = '<main>' + view + '</main><nav>' + tabs.map(function (n) { return '<button class="' + (ui.tab === n[0] ? 'on' : '') + '" data-act="tab" data-arg="' + n[0] + '">' + n[1] + '</button>'; }).join('') + '</nav>' + sheetView();
     }
     if (ui.toast) html += '<div class="toast" role="status"><span>' + esc(ui.toast) + '</span>' + (ui.undo ? '<button data-act="undo">Undo</button>' : '') + '</div>';
-    if ((ui.saving || inflight > 0) && S) html += '<div class="saving" role="status">Saving...</div>';
+    if ((ui.saving || writes > 0) && S) html += '<div class="saving" role="status">Saving...</div>';
     document.getElementById('app').innerHTML = html;
     window.scrollTo(0, y);
   }
@@ -641,7 +663,13 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
     markAll: function () {
       var ids = S.admin.payments.filter(function (r) { return r.state === 'none' || r.state === 'claimed'; }).map(function (r) { return r.id; });
       var month = S.month;
-      call('markAll', {}, function () { toast('Everyone marked as paid.', { action: 'resetPay', payload: { ids: ids, month: month } }); });
+      quick('markAll', {}, function () {
+        S.admin.payments.forEach(function (r) {
+          if (r.state === 'none') { r.state = 'paid'; r.paid = r.toPay; r.after = 0; }
+          else if (r.state === 'claimed') r.state = 'paid';
+        });
+        toast('Everyone marked as paid.', { action: 'resetPay', payload: { ids: ids, month: month } });
+      });
     },
     markExact: function () { var id = ui.sheet; ui.sheet = null; call('markPaid', { id: id }, function () { toast('Marked as paid.'); }); },
     saveDiff: function () {
@@ -713,8 +741,7 @@ nav button.on{color:var(--link);border-top-color:var(--link)}
   });
   document.addEventListener('visibilitychange', function () { if (!document.hidden && S && !ui.saving && !ui.sheet && !ui.draft && !ui.hg) call('state'); });
 
-  render();
-  call('state');
+  start();
 })();
 </script>
 </body>
