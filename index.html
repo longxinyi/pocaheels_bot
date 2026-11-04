@@ -138,7 +138,9 @@ input:focus,select:focus{outline:2px solid var(--link);outline-offset:1px}
 .month .count{margin-left:auto;font-family:var(--body);font-style:normal;font-size:14px;font-weight:500;color:var(--hint)}
 .month svg{flex-shrink:0;transition:transform .15s}
 .month[aria-expanded=true] svg{transform:rotate(180deg)}
-.month small{font-family:var(--body);font-style:normal;font-size:14px;font-weight:600;color:var(--ok)}
+.month small{font-family:var(--body);font-style:normal;font-size:14px;font-weight:600;color:var(--ok);white-space:nowrap}
+.month small.plainstatus{color:var(--text)}
+.month small.bad{color:var(--danger)}
 .infoline{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .pencil{width:38px;height:38px;padding:0;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:var(--btn2);color:var(--on-btn2)}
 .cl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
@@ -710,6 +712,12 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     var late = c.status === 'late';
     return '<input class="' + cls + '" type="text" aria-label="' + (late ? 'Arrival time or note' : 'Reason for being absent') + '" placeholder="' + (late ? 'e.g. ETA 8.30pm' : 'Reason, e.g. overseas') + '" value="' + esc(c.note) + '" data-note="' + c.date + '">';
   }
+  function monthStatus(m) {
+    var r = S.myMonths && S.myMonths[m];
+    if (!r) return '';
+    var text = r.state === 'paid' ? (r.paid ? 'Paid $' + r.paid : 'Paid') : r.state === 'claimed' ? 'Waiting for Poca' : r.state === 'nothing' ? 'Nothing to pay' : r.state === 'later' ? 'Not due yet' : r.proof === 'rejected' ? 'Rejected' : '$' + r.toPay + ' to pay';
+    return ' <small class="' + (r.state === 'paid' || r.state === 'nothing' ? '' : r.proof === 'rejected' && r.state === 'none' ? 'bad' : 'plainstatus') + '">' + esc(text) + '</small>';
+  }
   function myClassesCards() {
     var groups = {}, order = [], usual = usualClass();
     S.myClasses.forEach(function (c) {
@@ -724,12 +732,12 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       lastYear = year;
       var open = ui.openMonths[m] === undefined ? i === 0 : ui.openMonths[m];
       var n = groups[m].length;
-      var head = '<button class="month" aria-expanded="' + open + '" data-act="toggleMonth" data-arg="' + m + '|' + open + '">' + monthOf(m) + (m < S.startMonth ? ' <small>already paid</small>' : '') + '<span class="count">' + n + (n === 1 ? ' item' : ' items') + '</span>' + CHEVRON + '</button>';
+      var head = '<button class="month" aria-expanded="' + open + '" data-act="toggleMonth" data-arg="' + m + '|' + open + '">' + monthOf(m) + monthStatus(m) + '<span class="count">' + n + (n === 1 ? ' item' : ' items') + '</span>' + CHEVRON + '</button>';
       if (!open) return yearHead + head;
       return yearHead + head + '<section class="card list">' + groups[m].map(function (c) {
         var hint = '', w = whenWhere(c);
         var isPaidItem = !c.kind || c.kind === 'paid';
-        if (c.status === 'absent' && isPaidItem) hint = c.paid ? '$' + S.training + ' comes off your next payment.' : 'You only pay the $' + S.rent + ' rent for this class.';
+        if (c.status === 'absent' && isPaidItem) hint = c.paid && !c.inPayment ? '$' + S.training + ' comes off ' + monthOf(c.offMonth) + '.' : 'You only pay the $' + S.rent + ' rent for this class.';
         return '<div class="cl"><div><span class="day-name">' + lab(c.date) + '</span>' + (c.title ? '<span class="when" style="display:block;font-weight:600">' + esc(c.title) + '</span>' : '') + (w !== usual ? '<span class="when">' + esc(w) + '</span>' : '') + (itemTag(c) ? '<br>' + itemTag(c) : '') + '</div><div class="seg">' +
           [['coming', 'Coming'], ['late', 'Late'], ['absent', 'Absent']].map(function (o) { return '<button class="' + o[0] + (c.status === o[0] ? ' on' : '') + '" aria-label="' + lab(c.date) + ': ' + o[1] + '" aria-pressed="' + (c.status === o[0]) + '" data-act="status" data-arg="' + c.date + '|' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>' +
           noteInput(c, 'wide') +
@@ -747,7 +755,10 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     var h = '<section class="stage"><h1>' + monthOf(S.month) + ' payment</h1><div class="hint">Due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong></section>' + (extra || '');
     if (r.lines.length || (r.state !== 'none' && r.after)) {
       h += '<section class="card">' + linesHtml(r.lines).replace('class="line"', 'class="line" style="border-top:0;padding-top:0"');
-      if (r.state !== 'none' && r.after) h += '<div class="note">' + esc(carryText(r.after, S.month)) + '</div>';
+      if (r.state === 'paid' || r.state === 'claimed') {
+        h += '<div class="total"><span>' + monthOf(S.month) + ' cost</span><span>$' + r.toPay + '</span></div><div class="line"><span>You paid</span><b>$' + r.paid + '</b></div>';
+      }
+      if (r.state !== 'none' && r.after) h += '<div class="note">' + (r.after > 0 && r.state !== 'nothing' ? 'Extra ' : '') + esc(carryText(r.after, S.month)) + '</div>';
       h += '</section>';
     }
     if (r.state === 'none' && ui.upload) {
@@ -959,7 +970,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       var cur = S.myClasses.filter(function (c) { return c.date === p[0]; })[0];
       // A note belongs to one status: an ETA isn't a reason for being absent.
       var keep = cur && cur.status === p[1] ? cur.note : '';
-      quick('setStatus', { date: p[0], status: p[1], note: keep }, function () { if (cur) { cur.status = p[1]; cur.note = keep; } });
+      quick('setStatus', { date: p[0], status: p[1], note: keep }, function () { if (cur) { if (cur.status !== p[1]) cur.inPayment = false; cur.status = p[1]; cur.note = keep; } });
     },
     unclaim: function () { call('unclaim'); },
     undo: function () { var u = ui.undo; ui.toast = null; ui.undo = null; if (u) call(u.action, u.payload); }

@@ -279,7 +279,7 @@ function buildLedger(data, cfg) {
       if (p.person_id === person.id && p.month < month) before += Number(p.amount);
     });
     if (here) lines.push({ l: here + (here === 1 ? ' class' : ' classes') + ' at $' + full, v: '$' + here * full });
-    if (away) lines.push({ l: away + (away === 1 ? ' absence' : ' absences') + ', rent only at $' + rent, v: '$' + away * rent });
+    if (away) lines.push({ l: away + (away === 1 ? ' absence' : ' absences') + ', rent $' + rent, v: '$' + away * rent });
     let left = before;
     offsets.forEach((d) => {
       lines.push({ l: 'Offset: absent ' + niceDate(d).slice(4), v: '-$' + training });
@@ -342,12 +342,36 @@ function stateFor(me, month) {
     const away = active.filter((p) => data.status.some((s) => s.date === c.date && s.person_id === p.id && s.status === 'absent'));
     return { coming: active.length - away.length, total: active.length };
   }
+  // Credit from an absence comes off the first later month that hasn't been paid.
+  function creditMonth(month) {
+    let m = addMonths(month, 1);
+    if (m < cfg.START_MONTH) m = cfg.START_MONTH;
+    while (data.payments.some((p) => p.person_id === me.id && p.month === m)) m = addMonths(m, 1);
+    return m;
+  }
   out.myClasses = data.classes.filter((c) => !c.cancelled && c.date >= t).map((c) => ({
     date: c.date, start: c.start, end: c.end, location: c.location, kind: c.kind || 'paid', title: c.title,
     status: mine[c.date] ? mine[c.date].status : 'coming', note: mine[c.date] ? mine[c.date].note : '',
     paid: c.date.slice(0, 7) < cfg.START_MONTH || data.payments.some((p) => p.person_id === me.id && p.month === c.date.slice(0, 7)),
+    offMonth: creditMonth(c.date.slice(0, 7)),
+    // Marked absent before paying: the payment was already lower, so there is no credit to come.
+    inPayment: !!mine[c.date] && mine[c.date].status === 'absent' && data.payments.some((p) => p.person_id === me.id && p.month === c.date.slice(0, 7) && mine[c.date].marked_at <= p.at),
   }));
-  if (me.pays === 'yes') out.myPayment = led.summary(me, pm);
+  if (me.pays === 'yes') {
+    out.myPayment = led.summary(me, pm);
+    // One line per month for the Classes tab. Only the next unpaid month shows an amount.
+    const current = paymentMonth(cfg);
+    const months = out.myClasses.map((c) => c.date.slice(0, 7)).filter((m, i, all) => all.indexOf(m) === i);
+    let amountShown = false;
+    out.myMonths = {};
+    months.forEach((m) => {
+      if (m < cfg.START_MONTH) { out.myMonths[m] = { state: 'paid' }; return; }
+      const s = led.summary(me, m);
+      if (s.state === 'none' && m > current && amountShown) { out.myMonths[m] = { state: 'later' }; return; }
+      if (s.state === 'none') amountShown = true;
+      out.myMonths[m] = { state: s.state, paid: s.paid, toPay: s.toPay, proof: s.proof };
+    });
+  }
   const nameOf = {};
   data.people.forEach((p) => { nameOf[p.id] = p.name || p.tg_name; });
   out.hangouts = readTable('Hangouts').filter((h) => !h.deleted).map((h) => {
