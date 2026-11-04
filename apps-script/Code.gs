@@ -179,7 +179,7 @@ function monthName(m) {
 }
 function paymentMonth(cfg) {
   const t = today();
-  const m = Number(t.slice(8)) >= 15 ? addMonths(t.slice(0, 7), 1) : t.slice(0, 7);
+  const m = addMonths(t.slice(0, 7), 1); // Moves on the 1st. All of November shows December's payment.
   return m < cfg.START_MONTH ? cfg.START_MONTH : m;
 }
 function ensureMondays() {
@@ -323,11 +323,25 @@ function loadData() {
 function billable(people) { return people.filter((p) => (p.role === 'member' || p.role === 'admin') && p.pays === 'yes'); }
 
 // ---------- what each person is allowed to see ----------
+/** Opens on the oldest month still needing action, so late payers don't lose it on the 1st. */
+function defaultMonth(me, data, led, cfg) {
+  const current = paymentMonth(cfg);
+  const isAdmin = me.role === 'admin';
+  const who = isAdmin ? billable(data.people) : (me.pays === 'yes' ? [me] : []);
+  for (let m = cfg.START_MONTH; m < current; m = addMonths(m, 1)) {
+    const open = who.some((p) => {
+      const state = led.summary(p, m).state;
+      return state === 'none' || (isAdmin && state === 'claimed');
+    });
+    if (open) return m;
+  }
+  return current;
+}
 function stateFor(me, month) {
   const cfg = config();
   const data = loadData();
-  const pm = month || paymentMonth(cfg);
   const led = buildLedger(data, cfg);
+  const pm = month || defaultMonth(me, data, led, cfg);
   const t = today();
   const out = {
     me: { name: me.name, role: me.role, pays: me.pays === 'yes' },
@@ -870,13 +884,16 @@ function tick() {
     if (t === due) {
       once('sent_due_' + month, () => sendToGroup('hi!! ' + monthName(month) + ' payment is due today.\nopen the <a href="' + MINI_APP_LINK + '">miniapp</a> to see your amount due 💰💰', 'TOPIC_PAYMENTS'));
     }
-    const dayAfter = dateOf(due);
-    dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
-    if (t === isoOf(dayAfter)) {
+    // The day after the 30th can already be the next month, so check last month's payment too.
+    [month, addMonths(month, -1)].forEach((m) => {
+      if (m < cfg.START_MONTH) return;
+      const dayAfter = dateOf(dueDate(m));
+      dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
+      if (t !== isoOf(dayAfter)) return;
       const data = loadData();
       const led = buildLedger(data, cfg);
-      const unpaid = billable(data.people).filter((p) => led.summary(p, month).state === 'none');
-      if (unpaid.length) once('sent_overdue_' + month, () => sendReminder(unpaid));
-    }
+      const unpaid = billable(data.people).filter((p) => led.summary(p, m).state === 'none');
+      if (unpaid.length) once('sent_overdue_' + m, () => sendReminder(unpaid));
+    });
   }
 }

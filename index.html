@@ -59,6 +59,7 @@ button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .danger{background:var(--danger);color:var(--on-danger)}
 .plain{background:var(--soft);color:var(--text)}
 .primary:disabled{opacity:.4;cursor:default}
+.icon:disabled:not(.busy){opacity:.35;cursor:default}
 .calhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .icon{width:38px;height:38px;padding:0;border:0;border-radius:50%;background:var(--btn2);color:var(--on-btn2);font-size:22px;line-height:1}
 
@@ -326,7 +327,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e) { saved = null; }
     if (!saved || !tg || !tg.initData) { render(); call('state'); return; }
-    S = saved; ui.month = saved.paymentMonth; init(); render();
+    S = saved; ui.month = saved.month; init(); render();
     post('state').then(function (res) {
       inflight--;
       if (res.error) { toast(res.error); render(); return; }
@@ -336,7 +337,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
   }
   function post(action, payload) {
     inflight++;
-    var body = JSON.stringify({ initData: tg.initData, action: action, payload: Object.assign({ month: ui.month }, payload || {}) });
+    var body = JSON.stringify({ initData: tg.initData, action: action, payload: Object.assign({ month: action === 'state' && !ui.browsed ? undefined : ui.month }, payload || {}) });
     var p = chain.then(function () {
       return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body }).then(function (r) { return r.json(); });
     });
@@ -752,7 +753,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     var r = S.myPayment;
     var amt = r.state === 'claimed' || r.state === 'paid' ? r.paid : r.toPay;
     var status = r.state === 'paid' ? 'Paid and confirmed' : r.state === 'claimed' ? 'Waiting for Poca to confirm' : r.state === 'nothing' ? 'Nothing to pay this month' : r.proof === 'rejected' ? 'Screenshot rejected' : 'Not paid yet';
-    var h = '<section class="stage"><h1>' + monthOf(S.month) + ' payment</h1><div class="hint">Due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong></section>' + (extra || '');
+    var h = '<section class="stage"><div class="calhead"><button class="icon" aria-label="Previous month" data-act="payMonth" data-arg="-1"' + (S.month <= S.startMonth ? ' disabled' : '') + '>&#8249;</button><h1 class="long">' + monthOf(S.month) + ' payment</h1><button class="icon" aria-label="Next month" data-act="payMonth" data-arg="1"' + (S.month >= S.paymentMonth ? ' disabled' : '') + '>&#8250;</button></div><div class="hint">Due ' + lab(S.due).slice(4) + '</div><div class="amount">$' + amt + '</div><strong>' + status + '</strong></section>' + (extra || '');
     if (r.lines.length || (r.state !== 'none' && r.after)) {
       h += '<section class="card">' + linesHtml(r.lines).replace('class="line"', 'class="line" style="border-top:0;padding-top:0"');
       if (r.state === 'paid' || r.state === 'claimed') {
@@ -843,7 +844,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     editClass: function () { ui.editing = true; ui.draft = null; render(); },
     stopEditing: function () { ui.editing = false; ui.edit = false; ui.draft = null; render(); },
     calMonth: function (a) { var d = new Date(ui.y, ui.m + Number(a), 1); ui.y = d.getFullYear(); ui.m = d.getMonth(); ui.sel = null; ui.edit = false; ui.editing = false; ui.adding = false; ui.hg = null; ui.draft = null; render(); },
-    payMonth: function (a) { var m = addMonth(S.month, Number(a)); if (m < S.startMonth) return; ui.month = m; call('state'); },
+    payMonth: function (a) { var m = addMonth(S.month, Number(a)); if (m < S.startMonth) return; ui.browsed = true; ui.month = m; call('state'); },
     addClass: function () {
       var f = ui.draft;
       if (f.kind === 'hangout') {
