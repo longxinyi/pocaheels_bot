@@ -277,6 +277,21 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     if (!tg || !tg.requestWriteAccess || !tg.isVersionAtLeast || !tg.isVersionAtLeast('6.9') || !u || u.allows_write_to_pm) { next(); return; }
     try { tg.requestWriteAccess(go); } catch (e) { go(); }
   }
+  // Tries the older copy method first: it runs straight from the tap, which phone browsers trust most.
+  function copyText(text, done) {
+    var box = document.createElement('textarea'), ok = false;
+    box.value = text;
+    box.setAttribute('readonly', '');
+    box.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+    document.body.appendChild(box);
+    box.focus();
+    box.setSelectionRange(0, text.length);
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(box);
+    if (ok) { done(true); return; }
+    if (!navigator.clipboard || !navigator.clipboard.writeText) { done(false); return; }
+    navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+  }
   // Shrinks the picture so it uploads quickly but stays readable.
   function readProof(file) {
     if (!file) return;
@@ -765,7 +780,7 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
     if (r.state === 'none' && ui.upload) {
       h += '<section class="card"><strong>Is this the right screenshot?</strong><img class="proofimg" alt="Your payment screenshot" src="' + ui.upload + '"><div class="btnrow"><button class="primary" data-act="sendProof">Send to Poca</button><label class="plain filebtn">Choose another<input type="file" accept="image/*" data-change="proofFile"></label></div></section>';
     } else if (r.state === 'none') {
-      h += '<section class="card">' + (r.proof === 'rejected' ? '<div class="note bad">Your last screenshot was rejected. Please upload the correct one.</div>' : '') + '<div>' + (S.paynow ? 'PayNow to <strong>' + esc(S.paynow) + '</strong>. ' : '') + 'Screenshot after payment and upload here.</div><label class="primary filebtn">Upload screenshot<input type="file" accept="image/*" data-change="proofFile"></label></section>';
+      h += '<section class="card">' + (r.proof === 'rejected' ? '<div class="note bad">Your last screenshot was rejected. Please upload the correct one.</div>' : '') + (S.paynow ? '<div class="linked"><div>PayNow to <strong>' + esc(S.paynow) + '</strong></div><button class="text-link" data-act="copyPaynow">' + (ui.copied ? 'Copied' : 'Copy') + '</button></div>' : '') + '<div>Screenshot after payment and upload here.</div><label class="primary filebtn">Upload screenshot<input type="file" accept="image/*" data-change="proofFile"></label></section>';
     }
     if (r.state === 'claimed') h += '<button class="plain" data-act="unclaim">Send a different screenshot</button>';
     return h;
@@ -907,6 +922,14 @@ nav button.on{font-family:var(--display);font-style:italic;font-size:19px;font-w
       call('rejectProof', { id: a }, function (res) {
         ui.proofView = null;
         toast(res.notified ? name + ' was asked to send the correct screenshot.' : 'Rejected. ' + name + ' can\'t get private messages yet, but will see this in the app.');
+      });
+    },
+    copyPaynow: function () {
+      copyText(S.paynow, function (ok) {
+        if (!ok) { toast('Could not copy. The number is ' + S.paynow + '.'); render(); return; }
+        ui.copied = true;
+        render();
+        setTimeout(function () { ui.copied = false; render(); }, 2000);
       });
     },
     sendProof: function () {
